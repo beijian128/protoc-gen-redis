@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package REDB;
+
+option go_package = "github.com/beijian128/protoc-gen-redis/cmddb";
+
+enum REDBKey{
+    None = 0;
+    User = 1;
+}
