@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package gamedb;
+package user;
 
 option go_package = "github.com/beijian128/protoc-gen-redis/cmddb";
 
@@ -9,4 +9,15 @@ message User {
   uint64 Id = 1;
   string Name = 2;
   uint32 Age = 3;
+}
+
+message User2 {
+  uint64 Id2 = 1;
+  string Name2 = 2;
+  uint32 Age2 = 3;
+  int32 i32 = 4;
+  int64 i64 = 5;
+  repeated int32 list = 6;
+  User u = 7;
+  map<uint32,int32>mp = 8;
 }

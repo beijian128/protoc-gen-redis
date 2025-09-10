@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	cmddb "github.com/beijian128/protoc-gen-redis/proto"
-	"github.com/beijian128/protoc-gen-redis/reddb/template"
+	cmddb "github.com/beijian128/protoc-gen-redis/generated"
+
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"os"
@@ -43,22 +43,28 @@ func main() {
 	}
 	defer conn.Close()
 
+	//{
+	//	u := cmddb.NewUser2()
+	//	u.Id2 = 1234
+	//	u.Name2 = "Mikexx23xx"
+	//	u.List = []int32{1, 2, 3, 4, 5}
+	//	u.Mp = make(map[uint32]int32)
+	//	u.Mp[1] = 1
+	//	u.Mp[2] = 2
+	//	err = u.SetFields(conn, 2, 1, 0)
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//}
+
 	{
-		u := template.NewUserDB()
-		u.Id = 123
-		u.Name = "Mike"
-		err = u.SetFields(conn, cmddb.REDBKey_User, 1, 0, template.FieldUserDB_Id, template.FieldUserDB_Name)
+		u := cmddb.NewUser2()
+		err = u.GetFields(conn, 2, 1, 0)
 		if err != nil {
 			panic(err)
 		}
-	}
-	{
-		u := template.NewUserDB()
-		err = u.GetFields(conn, cmddb.REDBKey_User, 1, 0, template.FieldUserDB_Id, template.FieldUserDB_Name)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(u)
+		data, _ := json.Marshal(u)
+		fmt.Println(string(data))
 	}
 
 }
