@@ -40,94 +40,62 @@ type User struct {
 	Age uint32
 }
 
-// NewUser 创建一个新的 UserDB 实例
+// NewUser 创建一个新的 User 实例
 func NewUser() *User {
 	return &User{}
 }
 
 // SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
 // fields: 要存储的字段编号列表，如 FieldUser_Name, FieldUser_Age
+//
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUserIDs）
 func (p *User) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
 
-	// --- 直存字段: Id ---
-	args = append(args, FieldUser_Id, p.Id)
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldUserIDs
+	}
 
-	// --- 直存字段: Name ---
-	args = append(args, FieldUser_Name, p.Name)
+	for _, fieldID := range fieldsToUse {
+		fieldFound := false
 
-	// --- 直存字段: Age ---
-	args = append(args, FieldUser_Age, p.Age)
+		if fieldID == FieldUser_Id {
+			fieldFound = true
+
+			// --- 直存字段: Id ---
+			args = append(args, fieldID, p.Id)
+
+		}
+
+		if fieldID == FieldUser_Name {
+			fieldFound = true
+
+			// --- 直存字段: Name ---
+			args = append(args, fieldID, p.Name)
+
+		}
+
+		if fieldID == FieldUser_Age {
+			fieldFound = true
+
+			// --- 直存字段: Age ---
+			args = append(args, fieldID, p.Age)
+
+		}
+
+		if !fieldFound {
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+	}
 
 	_, err := conn.Do("HSET", args...)
 	return err
-}
-
-// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
-// REDBKey, ida, idb: 与 SetFields 对应
-// fields: 要读取的字段编号列表，如 FieldUser_Name, FieldUser_Age
-func (p *User) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	args := []interface{}{key}
-
-	args = append(args, FieldUser_Id)
-
-	args = append(args, FieldUser_Name)
-
-	args = append(args, FieldUser_Age)
-
-	reply, err := redis.Values(conn.Do("HMGET", args...))
-	if err != nil {
-		return fmt.Errorf("HMGET 失败: %v", err)
-	}
-
-	// --- 直读字段: Id ---
-	{
-		val, err := redis.Bytes(reply[0], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "Id", err)
-		}
-		if val != nil {
-
-			if id, err := strconv.ParseUint(string(val), 10, 64); err == nil {
-				p.Id = id
-			}
-
-		}
-	}
-
-	// --- 直读字段: Name ---
-	{
-		val, err := redis.Bytes(reply[1], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "Name", err)
-		}
-		if val != nil {
-
-			p.Name = string(val)
-
-		}
-	}
-
-	// --- 直读字段: Age ---
-	{
-		val, err := redis.Bytes(reply[2], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "Age", err)
-		}
-		if val != nil {
-
-			if id, err := strconv.ParseUint(string(val), 10, 32); err == nil {
-				p.Age = uint32(id)
-			}
-
-		}
-	}
-
-	return nil
 }
 
 // --- Message: User2 ---
@@ -190,204 +158,118 @@ type User2 struct {
 	Mp map[uint32]int32
 }
 
-// NewUser2 创建一个新的 User2DB 实例
+// NewUser2 创建一个新的 User2 实例
 func NewUser2() *User2 {
 	return &User2{}
 }
 
 // SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
 // fields: 要存储的字段编号列表，如 FieldUser2_Name, FieldUser2_Age
+//
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUser2IDs）
 func (p *User2) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser2) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
 
-	// --- 直存字段: Id2 ---
-	args = append(args, FieldUser2_Id2, p.Id2)
-
-	// --- 直存字段: Name2 ---
-	args = append(args, FieldUser2_Name2, p.Name2)
-
-	// --- 直存字段: Age2 ---
-	args = append(args, FieldUser2_Age2, p.Age2)
-
-	// --- 直存字段: I32 ---
-	args = append(args, FieldUser2_I32, p.I32)
-
-	// --- 直存字段: I64 ---
-	args = append(args, FieldUser2_I64, p.I64)
-
-	// --- Gob 序列化字段: List ---
-	{
-		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(p.List); err != nil {
-			return fmt.Errorf("gob 编码字段 %s 失败: %v", "List", err)
-		}
-		args = append(args, FieldUser2_List, buf.Bytes())
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldUser2IDs
 	}
 
-	// --- Gob 序列化字段: U ---
-	{
-		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(p.U); err != nil {
-			return fmt.Errorf("gob 编码字段 %s 失败: %v", "U", err)
-		}
-		args = append(args, FieldUser2_U, buf.Bytes())
-	}
+	for _, fieldID := range fieldsToUse {
+		fieldFound := false
 
-	// --- Gob 序列化字段: Mp ---
-	{
-		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(p.Mp); err != nil {
-			return fmt.Errorf("gob 编码字段 %s 失败: %v", "Mp", err)
+		if fieldID == FieldUser2_Id2 {
+			fieldFound = true
+
+			// --- 直存字段: Id2 ---
+			args = append(args, fieldID, p.Id2)
+
 		}
-		args = append(args, FieldUser2_Mp, buf.Bytes())
+
+		if fieldID == FieldUser2_Name2 {
+			fieldFound = true
+
+			// --- 直存字段: Name2 ---
+			args = append(args, fieldID, p.Name2)
+
+		}
+
+		if fieldID == FieldUser2_Age2 {
+			fieldFound = true
+
+			// --- 直存字段: Age2 ---
+			args = append(args, fieldID, p.Age2)
+
+		}
+
+		if fieldID == FieldUser2_I32 {
+			fieldFound = true
+
+			// --- 直存字段: I32 ---
+			args = append(args, fieldID, p.I32)
+
+		}
+
+		if fieldID == FieldUser2_I64 {
+			fieldFound = true
+
+			// --- 直存字段: I64 ---
+			args = append(args, fieldID, p.I64)
+
+		}
+
+		if fieldID == FieldUser2_List {
+			fieldFound = true
+
+			// --- Gob 序列化字段: List ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.List); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "List", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
+
+		}
+
+		if fieldID == FieldUser2_U {
+			fieldFound = true
+
+			// --- Gob 序列化字段: U ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.U); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "U", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
+
+		}
+
+		if fieldID == FieldUser2_Mp {
+			fieldFound = true
+
+			// --- Gob 序列化字段: Mp ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.Mp); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Mp", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
+
+		}
+
+		if !fieldFound {
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
 	}
 
 	_, err := conn.Do("HSET", args...)
 	return err
-}
-
-// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
-// REDBKey, ida, idb: 与 SetFields 对应
-// fields: 要读取的字段编号列表，如 FieldUser2_Name, FieldUser2_Age
-func (p *User2) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser2) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	args := []interface{}{key}
-
-	args = append(args, FieldUser2_Id2)
-
-	args = append(args, FieldUser2_Name2)
-
-	args = append(args, FieldUser2_Age2)
-
-	args = append(args, FieldUser2_I32)
-
-	args = append(args, FieldUser2_I64)
-
-	args = append(args, FieldUser2_List)
-
-	args = append(args, FieldUser2_U)
-
-	args = append(args, FieldUser2_Mp)
-
-	reply, err := redis.Values(conn.Do("HMGET", args...))
-	if err != nil {
-		return fmt.Errorf("HMGET 失败: %v", err)
-	}
-
-	// --- 直读字段: Id2 ---
-	{
-		val, err := redis.Bytes(reply[0], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "Id2", err)
-		}
-		if val != nil {
-
-			if id, err := strconv.ParseUint(string(val), 10, 64); err == nil {
-				p.Id2 = id
-			}
-
-		}
-	}
-
-	// --- 直读字段: Name2 ---
-	{
-		val, err := redis.Bytes(reply[1], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "Name2", err)
-		}
-		if val != nil {
-
-			p.Name2 = string(val)
-
-		}
-	}
-
-	// --- 直读字段: Age2 ---
-	{
-		val, err := redis.Bytes(reply[2], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "Age2", err)
-		}
-		if val != nil {
-
-			if id, err := strconv.ParseUint(string(val), 10, 32); err == nil {
-				p.Age2 = uint32(id)
-			}
-
-		}
-	}
-
-	// --- 直读字段: I32 ---
-	{
-		val, err := redis.Bytes(reply[3], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "I32", err)
-		}
-		if val != nil {
-
-			if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
-				p.I32 = int32(id)
-			}
-
-		}
-	}
-
-	// --- 直读字段: I64 ---
-	{
-		val, err := redis.Bytes(reply[4], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "I64", err)
-		}
-		if val != nil {
-
-			if id, err := strconv.ParseInt(string(val), 10, 64); err == nil {
-				p.I64 = id
-			}
-
-		}
-	}
-
-	// --- Gob 反序列化字段: List ---
-	{
-		val, err := redis.Bytes(reply[5], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "List", err)
-		}
-		if val != nil {
-			if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.List); err != nil {
-				return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "List", err)
-			}
-		}
-	}
-
-	// --- Gob 反序列化字段: U ---
-	{
-		val, err := redis.Bytes(reply[6], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "U", err)
-		}
-		if val != nil {
-			if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.U); err != nil {
-				return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "U", err)
-			}
-		}
-	}
-
-	// --- Gob 反序列化字段: Mp ---
-	{
-		val, err := redis.Bytes(reply[7], nil)
-		if err != nil && err != redis.ErrNil {
-			return fmt.Errorf("读取字段 %s 失败: %v", "Mp", err)
-		}
-		if val != nil {
-			if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Mp); err != nil {
-				return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Mp", err)
-			}
-		}
-	}
-
-	return nil
 }

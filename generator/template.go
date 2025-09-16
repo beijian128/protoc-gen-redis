@@ -15,138 +15,75 @@ import (
 `
 
 const codeTemplate = `
-// Field{{$.MessageName}} 用于标识 Redis Hash 中的字段编号
-type Field{{$.MessageName}} uint32
+// Field{{.MessageName}} 用于标识 Redis Hash 中的字段编号
+type Field{{.MessageName}} uint32
 
 {{range .Fields}}
 // Field{{$.MessageName}}_{{.Name}} 是字段 {{.Name}} 对应的 Redis Hash field 编号
 const Field{{$.MessageName}}_{{.Name}} Field{{$.MessageName}} = {{.ProtoTag}}
 {{end}}
 
-// Field{{$.MessageName}}IDs 是所有字段编号常量的集合，类型为 []Field{{$.MessageName}}
-var Field{{$.MessageName}}IDs = []Field{{$.MessageName}}{
+// Field{{.MessageName}}IDs 是所有字段编号常量的集合，类型为 []Field{{.MessageName}}
+var Field{{.MessageName}}IDs = []Field{{.MessageName}}{
 	{{range .Fields}}Field{{$.MessageName}}_{{.Name}},
 	{{end}}
 }
 
-// {{$.MessageName}} 提供针对 {{$.MessageName}} 消息的 Redis 存取操作
-type {{$.MessageName}} struct {
+// {{.MessageName}} 提供针对 {{.MessageName}} 消息的 Redis 存取操作
+type {{.MessageName}} struct {
 	{{range .Fields}}
 	{{.Name}} {{.GoType}}
 	{{end}}
 }
 
-// New{{$.MessageName}} 创建一个新的 {{$.MessageName}}DB 实例
-func New{{$.MessageName}}() *{{$.MessageName}} {
-	return &{{$.MessageName}}{}
+// New{{.MessageName}} 创建一个新的 {{.MessageName}} 实例
+func New{{.MessageName}}() *{{.MessageName}} {
+	return &{{.MessageName}}{}
 }
 
 // SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要存储的字段编号列表，如 Field{{$.MessageName}}_Name, Field{{$.MessageName}}_Age
-func (p *{{$.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...Field{{$.MessageName}}) error {
+// fields: 要存储的字段编号列表，如 Field{{.MessageName}}_Name, Field{{.MessageName}}_Age
+//          如果 fields 为空（长度为 0），则默认存储所有字段（即 Field{{.MessageName}}IDs）
+func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...Field{{.MessageName}}) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
-	{{range $i, $field := .Fields}}
-		{{if .IsGob}}
-		// --- Gob 序列化字段: {{$field.Name}} ---
-		{
-			var buf bytes.Buffer
-			if err := gob.NewEncoder(&buf).Encode(p.{{$field.Name}}); err != nil {
-				return fmt.Errorf("gob 编码字段 %s 失败: %v", "{{$field.Name}}", err)
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = Field{{.MessageName}}IDs
+	}
+
+	for _, fieldID := range fieldsToUse {
+		fieldFound := false
+		{{range .Fields}}
+		if fieldID == Field{{$.MessageName}}_{{.Name}} {
+			fieldFound = true
+			{{if .IsGob}}
+			// --- Gob 序列化字段: {{.Name}} ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.{{.Name}}); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "{{.Name}}", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
 			}
-			args = append(args, Field{{$.MessageName}}_{{$field.Name}}, buf.Bytes())
+			{{else}}
+			// --- 直存字段: {{.Name}} ---
+			args = append(args, fieldID, p.{{.Name}})
+			{{end}}
 		}
-		{{else}}
-		// --- 直存字段: {{$field.Name}} ---
-		args = append(args, Field{{$.MessageName}}_{{$field.Name}}, p.{{$field.Name}})
 		{{end}}
-	{{end}}
+		if !fieldFound {
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+	}
+
 	_, err := conn.Do("HSET", args...)
 	return err
 }
 
-// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
-// REDBKey, ida, idb: 与 SetFields 对应
-// fields: 要读取的字段编号列表，如 Field{{$.MessageName}}_Name, Field{{$.MessageName}}_Age
-func (p *{{$.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...Field{{$.MessageName}}) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	args := []interface{}{key}
-	{{range .Fields}}
-	args = append(args, Field{{$.MessageName}}_{{.Name}})
-	{{end}}
-
-	reply, err := redis.Values(conn.Do("HMGET", args...))
-	if err != nil {
-		return fmt.Errorf("HMGET 失败: %v", err)
-	}
-
-	{{range $i, $field := .Fields}}
-		{{if .IsGob}}
-		// --- Gob 反序列化字段: {{$field.Name}} ---
-		{
-			val, err := redis.Bytes(reply[{{$i}}], nil)
-			if err != nil && err != redis.ErrNil {
-				return fmt.Errorf("读取字段 %s 失败: %v", "{{$field.Name}}", err)
-			}
-			if val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.{{$field.Name}}); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "{{$field.Name}}", err)
-				}
-			}
-		}
-		{{else}}
-		// --- 直读字段: {{$field.Name}} ---
-       {
-			val, err := redis.Bytes(reply[{{$i}}], nil)
-			if err != nil && err != redis.ErrNil {
-				return fmt.Errorf("读取字段 %s 失败: %v", "{{$field.Name}}", err)
-			}
-			if val != nil {
-				{{if eq .GoType "string"}}
-				p.{{$field.Name}} = string(val)
-				{{else if eq .GoType "uint64"}}
-				if id, err := strconv.ParseUint(string(val), 10, 64); err == nil {
-					p.{{$field.Name}} = id
-				}
-				{{else if eq .GoType "int64"}}
-				if id, err := strconv.ParseInt(string(val), 10, 64); err == nil {
-					p.{{$field.Name}} = id
-				}
-				{{else if eq .GoType "uint32"}}
-				if id, err := strconv.ParseUint(string(val), 10, 32); err == nil {
-					p.{{$field.Name}} = uint32(id)
-				}
-				{{else if eq .GoType "int32"}}
-				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
-					p.{{$field.Name}} = int32(id)
-				}
-				{{else if eq .GoType "float64"}}
-				if f, err := strconv.ParseFloat(string(val), 64); err == nil {
-					p.{{$field.Name}} = f
-				}
-				{{else if eq .GoType "float32"}}
-				if f, err := strconv.ParseFloat(string(val), 32); err == nil {
-					p.{{$field.Name}} = float32(f)
-				}
-				{{else if eq .GoType "bool"}}
-				if len(val) > 0 && val[0] == '1' {
-					p.{{$field.Name}} = true
-				} else if len(val) > 0 && val[0] == '0' {
-					p.{{$field.Name}} = false
-				}
-				{{else if eq .GoType "[]byte"}}
-				p.{{$field.Name}} = val
-				{{else}}
-				// 默认尝试字符串（可自行扩展）
-				p.{{$field.Name}} = string(val)
-				{{end}}
-			}
-		}
-		{{end}}
-	{{end}}
-
-	return nil
-}
 `
