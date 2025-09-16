@@ -6,6 +6,8 @@ const codeTemplateHead = `
 package {{.PackageName}}
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"strconv"
 	"github.com/gomodule/redigo/redis"

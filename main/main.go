@@ -43,19 +43,24 @@ func main() {
 	}
 	defer conn.Close()
 
-	//{
-	//	u := cmddb.NewUser2()
-	//	u.Id2 = 1234
-	//	u.Name2 = "Mikexx23xx"
-	//	u.List = []int32{1, 2, 3, 4, 5}
-	//	u.Mp = make(map[uint32]int32)
-	//	u.Mp[1] = 1
-	//	u.Mp[2] = 2
-	//	err = u.SetFields(conn, 2, 1, 0)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//}
+	{
+		u := cmddb.NewUser2()
+		u.Id2 = 1234
+		u.Name2 = "Mikexx23xx"
+		u.List = []int32{1, 2, 3, 4, 5}
+		u.Mp = make(map[uint32]int32)
+		u.Mp[1] = 1
+		u.Mp[2] = 2
+		u.U = cmddb.User{
+			Id:   44444,
+			Name: "555555555555",
+			Age:  231232132,
+		}
+		err = u.SetFields(conn, 2, 1, 0)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	{
 		u := cmddb.NewUser2()
@@ -64,6 +69,7 @@ func main() {
 			panic(err)
 		}
 		data, _ := json.Marshal(u)
+		fmt.Println(u)
 		fmt.Println(string(data))
 	}
 
