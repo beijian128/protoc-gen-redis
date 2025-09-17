@@ -1,6 +1,6 @@
 🚀 proto-gen-redis
 
-proto-gen-redis 是一个基于 https://grpc.io/docs/languages/go/quickstart/  生态的 Protocol Buffers 代码生成插件，用于为 Protobuf 消息自动生成与 Redis Hash 存储交互的 Go 代码。
+proto-gen-redis 是一个基于Protocol Buffers (protoc) 生态的代码生成插件，用于为 Protobuf 消息自动生成与 Redis Hash 存储交互的 Go 代码。
 
 它帮你减少手写 Redis 存取样板代码，支持：
 
