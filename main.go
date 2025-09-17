@@ -18,7 +18,7 @@ func main() {
 			// ✅ 只为每个 proto 文件生成一个总的 Redis 代码文件
 			var allCode bytes.Buffer
 			{
-				code, err := generator.GenerateRedisCodeHead(gen, f)
+				code, err := generator.GenerateRedisCodeHeadWithEnums(gen)
 				if err != nil {
 					return fmt.Errorf("生成的Pkg head代码失败: %v", err)
 				}

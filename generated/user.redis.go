@@ -10,55 +10,140 @@ import (
 	"strconv"
 )
 
-// --- Message: User ---
+// Enum Gender
+type Gender int32
 
-// FieldUser 用于标识 Redis Hash 中的字段编号
-type FieldUser uint32
+const (
+	Gender_GENDER_UNKNOWN Gender = 0
+	Gender_GENDER_MALE    Gender = 1
+	Gender_GENDER_FEMALE  Gender = 2
+)
 
-// FieldUser_Id 是字段 Id 对应的 Redis Hash field 编号
-const FieldUser_Id FieldUser = 1
+// Enum LoginSource
+type LoginSource int32
 
-// FieldUser_Name 是字段 Name 对应的 Redis Hash field 编号
-const FieldUser_Name FieldUser = 2
+const (
+	LoginSource_SOURCE_UNKNOWN      LoginSource = 0
+	LoginSource_SOURCE_APP          LoginSource = 1
+	LoginSource_SOURCE_H5           LoginSource = 2
+	LoginSource_SOURCE_MINI_PROGRAM LoginSource = 3
+)
 
-// FieldUser_Age 是字段 Age 对应的 Redis Hash field 编号
-const FieldUser_Age FieldUser = 3
+// --- Message: UserBaseInfo ---
 
-// FieldUserIDs 是所有字段编号常量的集合，类型为 []FieldUser
-var FieldUserIDs = []FieldUser{
-	FieldUser_Id,
-	FieldUser_Name,
-	FieldUser_Age,
+// FieldUserBaseInfo 用于标识 Redis Hash 中的字段编号
+type FieldUserBaseInfo uint32
+
+// FieldUserBaseInfo_User_id 是字段 User_id 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_User_id FieldUserBaseInfo = 1
+
+// FieldUserBaseInfo_Username 是字段 Username 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Username FieldUserBaseInfo = 2
+
+// FieldUserBaseInfo_Avatar_url 是字段 Avatar_url 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Avatar_url FieldUserBaseInfo = 3
+
+// FieldUserBaseInfo_Gender 是字段 Gender 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Gender FieldUserBaseInfo = 4
+
+// FieldUserBaseInfo_Level 是字段 Level 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Level FieldUserBaseInfo = 5
+
+// FieldUserBaseInfo_Exp 是字段 Exp 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Exp FieldUserBaseInfo = 6
+
+// FieldUserBaseInfo_Balance 是字段 Balance 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Balance FieldUserBaseInfo = 7
+
+// FieldUserBaseInfo_Friends 是字段 Friends 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Friends FieldUserBaseInfo = 8
+
+// FieldUserBaseInfo_Settings 是字段 Settings 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Settings FieldUserBaseInfo = 9
+
+// FieldUserBaseInfo_Login_source 是字段 Login_source 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Login_source FieldUserBaseInfo = 10
+
+// FieldUserBaseInfo_Listint32 是字段 Listint32 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Listint32 FieldUserBaseInfo = 11
+
+// FieldUserBaseInfo_Weapons 是字段 Weapons 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Weapons FieldUserBaseInfo = 12
+
+// FieldUserBaseInfo_Weapon 是字段 Weapon 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Weapon FieldUserBaseInfo = 13
+
+// FieldUserBaseInfo_WeaponMap 是字段 WeaponMap 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_WeaponMap FieldUserBaseInfo = 14
+
+// FieldUserBaseInfoIDs 是所有字段编号常量的集合，类型为 []FieldUserBaseInfo
+var FieldUserBaseInfoIDs = []FieldUserBaseInfo{
+	FieldUserBaseInfo_User_id,
+	FieldUserBaseInfo_Username,
+	FieldUserBaseInfo_Avatar_url,
+	FieldUserBaseInfo_Gender,
+	FieldUserBaseInfo_Level,
+	FieldUserBaseInfo_Exp,
+	FieldUserBaseInfo_Balance,
+	FieldUserBaseInfo_Friends,
+	FieldUserBaseInfo_Settings,
+	FieldUserBaseInfo_Login_source,
+	FieldUserBaseInfo_Listint32,
+	FieldUserBaseInfo_Weapons,
+	FieldUserBaseInfo_Weapon,
+	FieldUserBaseInfo_WeaponMap,
 }
 
-// User 提供针对 User 消息的 Redis 存取操作
-type User struct {
-	Id uint64
+// UserBaseInfo 提供针对 UserBaseInfo 消息的 Redis 存取操作
+type UserBaseInfo struct {
+	User_id int32
 
-	Name string
+	Username string
 
-	Age uint32
+	Avatar_url string
+
+	Gender Gender
+
+	Level int32
+
+	Exp int64
+
+	Balance float32
+
+	Friends []string
+
+	Settings map[string]string
+
+	Login_source LoginSource
+
+	Listint32 []int32
+
+	Weapons []Weapon
+
+	Weapon Weapon
+
+	WeaponMap map[int32]Weapon
 }
 
-// NewUser 创建一个新的 User 实例
-func NewUser() *User {
-	return &User{}
+// NewUserBaseInfo 创建一个新的 UserBaseInfo 实例
+func NewUserBaseInfo() *UserBaseInfo {
+	return &UserBaseInfo{}
 }
 
 // GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要读取的字段编号列表，如 FieldUser_Name, FieldUser_Age
+// fields: 要读取的字段编号列表，如 FieldUserBaseInfo_Name, FieldUserBaseInfo_Age
 //
-//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldUserIDs）
-func (p *User) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser) error {
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldUserBaseInfoIDs）
+func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldUserIDs
+		fieldsToUse = FieldUserBaseInfoIDs
 	}
 
 	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...
@@ -84,35 +169,146 @@ func (p *User) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, field
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUser_Id:
+		case FieldUserBaseInfo_User_id:
 
-			// --- 直读字段: Id ---
+			// --- 直读字段: User_id ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if id, err := strconv.ParseUint(string(val), 10, 64); err == nil {
-					p.Id = id
+				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
+					p.User_id = int32(id)
 				}
 
 			}
 
-		case FieldUser_Name:
+		case FieldUserBaseInfo_Username:
 
-			// --- 直读字段: Name ---
+			// --- 直读字段: Username ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				p.Name = string(val)
+				p.Username = string(val)
 
 			}
 
-		case FieldUser_Age:
+		case FieldUserBaseInfo_Avatar_url:
 
-			// --- 直读字段: Age ---
+			// --- 直读字段: Avatar_url ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if id, err := strconv.ParseUint(string(val), 10, 32); err == nil {
-					p.Age = uint32(id)
+				p.Avatar_url = string(val)
+
+			}
+
+		case FieldUserBaseInfo_Gender:
+
+			// --- 直读字段: Gender ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				var intValue int64
+				if intValue, err = strconv.ParseInt(string(val), 10, 64); err != nil {
+					return fmt.Errorf("解析枚举字段 %s 失败: %v", "Gender", err)
+				}
+				p.Gender = Gender(int32(intValue)) // 假设所有枚举都是 int32 底层
+
+			}
+
+		case FieldUserBaseInfo_Level:
+
+			// --- 直读字段: Level ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
+					p.Level = int32(id)
 				}
 
+			}
+
+		case FieldUserBaseInfo_Exp:
+
+			// --- 直读字段: Exp ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				if id, err := strconv.ParseInt(string(val), 10, 64); err == nil {
+					p.Exp = id
+				}
+
+			}
+
+		case FieldUserBaseInfo_Balance:
+
+			// --- 直读字段: Balance ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				if f, err := strconv.ParseFloat(string(val), 32); err == nil {
+					p.Balance = float32(f)
+				}
+
+			}
+
+		case FieldUserBaseInfo_Friends:
+
+			// --- Gob 反序列化字段: Friends ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Friends); err != nil {
+					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Friends", err)
+				}
+			}
+
+		case FieldUserBaseInfo_Settings:
+
+			// --- Gob 反序列化字段: Settings ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Settings); err != nil {
+					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Settings", err)
+				}
+			}
+
+		case FieldUserBaseInfo_Login_source:
+
+			// --- 直读字段: Login_source ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				var intValue int64
+				if intValue, err = strconv.ParseInt(string(val), 10, 64); err != nil {
+					return fmt.Errorf("解析枚举字段 %s 失败: %v", "Login_source", err)
+				}
+				p.Login_source = LoginSource(int32(intValue)) // 假设所有枚举都是 int32 底层
+
+			}
+
+		case FieldUserBaseInfo_Listint32:
+
+			// --- Gob 反序列化字段: Listint32 ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Listint32); err != nil {
+					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Listint32", err)
+				}
+			}
+
+		case FieldUserBaseInfo_Weapons:
+
+			// --- Gob 反序列化字段: Weapons ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Weapons); err != nil {
+					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Weapons", err)
+				}
+			}
+
+		case FieldUserBaseInfo_Weapon:
+
+			// --- Gob 反序列化字段: Weapon ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Weapon); err != nil {
+					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Weapon", err)
+				}
+			}
+
+		case FieldUserBaseInfo_WeaponMap:
+
+			// --- Gob 反序列化字段: WeaponMap ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.WeaponMap); err != nil {
+					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "WeaponMap", err)
+				}
 			}
 
 		default:
@@ -128,36 +324,127 @@ func (p *User) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, field
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要存储的字段编号列表，如 FieldUser_Name, FieldUser_Age
+// fields: 要存储的字段编号列表，如 FieldUserBaseInfo_Name, FieldUserBaseInfo_Age
 //
-//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUserIDs）
-func (p *User) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser) error {
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUserBaseInfoIDs）
+func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldUserIDs
+		fieldsToUse = FieldUserBaseInfoIDs
 	}
 
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUser_Id:
+		case FieldUserBaseInfo_User_id:
 
-			// --- 直存字段: Id ---
-			args = append(args, fieldID, p.Id)
+			// --- 直存字段: User_id ---
+			args = append(args, fieldID, p.User_id)
 
-		case FieldUser_Name:
+		case FieldUserBaseInfo_Username:
 
-			// --- 直存字段: Name ---
-			args = append(args, fieldID, p.Name)
+			// --- 直存字段: Username ---
+			args = append(args, fieldID, p.Username)
 
-		case FieldUser_Age:
+		case FieldUserBaseInfo_Avatar_url:
 
-			// --- 直存字段: Age ---
-			args = append(args, fieldID, p.Age)
+			// --- 直存字段: Avatar_url ---
+			args = append(args, fieldID, p.Avatar_url)
+
+		case FieldUserBaseInfo_Gender:
+
+			// --- 直存字段: Gender ---
+			args = append(args, fieldID, p.Gender)
+
+		case FieldUserBaseInfo_Level:
+
+			// --- 直存字段: Level ---
+			args = append(args, fieldID, p.Level)
+
+		case FieldUserBaseInfo_Exp:
+
+			// --- 直存字段: Exp ---
+			args = append(args, fieldID, p.Exp)
+
+		case FieldUserBaseInfo_Balance:
+
+			// --- 直存字段: Balance ---
+			args = append(args, fieldID, p.Balance)
+
+		case FieldUserBaseInfo_Friends:
+
+			// --- Gob 序列化字段: Friends ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.Friends); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Friends", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
+
+		case FieldUserBaseInfo_Settings:
+
+			// --- Gob 序列化字段: Settings ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.Settings); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Settings", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
+
+		case FieldUserBaseInfo_Login_source:
+
+			// --- 直存字段: Login_source ---
+			args = append(args, fieldID, p.Login_source)
+
+		case FieldUserBaseInfo_Listint32:
+
+			// --- Gob 序列化字段: Listint32 ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.Listint32); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Listint32", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
+
+		case FieldUserBaseInfo_Weapons:
+
+			// --- Gob 序列化字段: Weapons ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.Weapons); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Weapons", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
+
+		case FieldUserBaseInfo_Weapon:
+
+			// --- Gob 序列化字段: Weapon ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.Weapon); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Weapon", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
+
+		case FieldUserBaseInfo_WeaponMap:
+
+			// --- Gob 序列化字段: WeaponMap ---
+			{
+				var buf bytes.Buffer
+				if err := gob.NewEncoder(&buf).Encode(p.WeaponMap); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "WeaponMap", err)
+				}
+				args = append(args, fieldID, buf.Bytes())
+			}
 
 		default:
 			return fmt.Errorf("未知字段编号: %d", fieldID)
@@ -168,91 +455,55 @@ func (p *User) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, field
 	return err
 }
 
-// --- Message: User2 ---
+// --- Message: Weapon ---
 
-// FieldUser2 用于标识 Redis Hash 中的字段编号
-type FieldUser2 uint32
+// FieldWeapon 用于标识 Redis Hash 中的字段编号
+type FieldWeapon uint32
 
-// FieldUser2_Id2 是字段 Id2 对应的 Redis Hash field 编号
-const FieldUser2_Id2 FieldUser2 = 1
+// FieldWeapon_Name 是字段 Name 对应的 Redis Hash field 编号
+const FieldWeapon_Name FieldWeapon = 1
 
-// FieldUser2_Name2 是字段 Name2 对应的 Redis Hash field 编号
-const FieldUser2_Name2 FieldUser2 = 2
+// FieldWeapon_Damage 是字段 Damage 对应的 Redis Hash field 编号
+const FieldWeapon_Damage FieldWeapon = 2
 
-// FieldUser2_Age2 是字段 Age2 对应的 Redis Hash field 编号
-const FieldUser2_Age2 FieldUser2 = 3
+// FieldWeapon_Element 是字段 Element 对应的 Redis Hash field 编号
+const FieldWeapon_Element FieldWeapon = 3
 
-// FieldUser2_I32 是字段 I32 对应的 Redis Hash field 编号
-const FieldUser2_I32 FieldUser2 = 4
-
-// FieldUser2_I64 是字段 I64 对应的 Redis Hash field 编号
-const FieldUser2_I64 FieldUser2 = 5
-
-// FieldUser2_List 是字段 List 对应的 Redis Hash field 编号
-const FieldUser2_List FieldUser2 = 6
-
-// FieldUser2_U 是字段 U 对应的 Redis Hash field 编号
-const FieldUser2_U FieldUser2 = 7
-
-// FieldUser2_Mp 是字段 Mp 对应的 Redis Hash field 编号
-const FieldUser2_Mp FieldUser2 = 8
-
-// FieldUser2_Ok 是字段 Ok 对应的 Redis Hash field 编号
-const FieldUser2_Ok FieldUser2 = 9
-
-// FieldUser2IDs 是所有字段编号常量的集合，类型为 []FieldUser2
-var FieldUser2IDs = []FieldUser2{
-	FieldUser2_Id2,
-	FieldUser2_Name2,
-	FieldUser2_Age2,
-	FieldUser2_I32,
-	FieldUser2_I64,
-	FieldUser2_List,
-	FieldUser2_U,
-	FieldUser2_Mp,
-	FieldUser2_Ok,
+// FieldWeaponIDs 是所有字段编号常量的集合，类型为 []FieldWeapon
+var FieldWeaponIDs = []FieldWeapon{
+	FieldWeapon_Name,
+	FieldWeapon_Damage,
+	FieldWeapon_Element,
 }
 
-// User2 提供针对 User2 消息的 Redis 存取操作
-type User2 struct {
-	Id2 uint64
+// Weapon 提供针对 Weapon 消息的 Redis 存取操作
+type Weapon struct {
+	Name string
 
-	Name2 string
+	Damage int32
 
-	Age2 uint32
-
-	I32 int32
-
-	I64 int64
-
-	List []int32
-
-	U User
-
-	Mp map[uint32]int32
-
-	Ok bool
+	Element string
 }
 
-// NewUser2 创建一个新的 User2 实例
-func NewUser2() *User2 {
-	return &User2{}
+// NewWeapon 创建一个新的 Weapon 实例
+func NewWeapon() *Weapon {
+	return &Weapon{}
 }
 
 // GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要读取的字段编号列表，如 FieldUser2_Name, FieldUser2_Age
+// fields: 要读取的字段编号列表，如 FieldWeapon_Name, FieldWeapon_Age
 //
-//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldUser2IDs）
-func (p *User2) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser2) error {
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldWeaponIDs）
+func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldWeapon) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldUser2IDs
+		fieldsToUse = FieldWeaponIDs
 	}
 
 	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...
@@ -278,96 +529,32 @@ func (p *User2) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fiel
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUser2_Id2:
+		case FieldWeapon_Name:
 
-			// --- 直读字段: Id2 ---
+			// --- 直读字段: Name ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if id, err := strconv.ParseUint(string(val), 10, 64); err == nil {
-					p.Id2 = id
-				}
+				p.Name = string(val)
 
 			}
 
-		case FieldUser2_Name2:
+		case FieldWeapon_Damage:
 
-			// --- 直读字段: Name2 ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-
-				p.Name2 = string(val)
-
-			}
-
-		case FieldUser2_Age2:
-
-			// --- 直读字段: Age2 ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-
-				if id, err := strconv.ParseUint(string(val), 10, 32); err == nil {
-					p.Age2 = uint32(id)
-				}
-
-			}
-
-		case FieldUser2_I32:
-
-			// --- 直读字段: I32 ---
+			// --- 直读字段: Damage ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
 				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
-					p.I32 = int32(id)
+					p.Damage = int32(id)
 				}
 
 			}
 
-		case FieldUser2_I64:
+		case FieldWeapon_Element:
 
-			// --- 直读字段: I64 ---
+			// --- 直读字段: Element ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if id, err := strconv.ParseInt(string(val), 10, 64); err == nil {
-					p.I64 = id
-				}
-
-			}
-
-		case FieldUser2_List:
-
-			// --- Gob 反序列化字段: List ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.List); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "List", err)
-				}
-			}
-
-		case FieldUser2_U:
-
-			// --- Gob 反序列化字段: U ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.U); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "U", err)
-				}
-			}
-
-		case FieldUser2_Mp:
-
-			// --- Gob 反序列化字段: Mp ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Mp); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Mp", err)
-				}
-			}
-
-		case FieldUser2_Ok:
-
-			// --- 直读字段: Ok ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-
-				if len(val) > 0 && val[0] == '1' {
-					p.Ok = true
-				} else if len(val) > 0 && val[0] == '0' {
-					p.Ok = false
-				}
+				p.Element = string(val)
 
 			}
 
@@ -384,84 +571,36 @@ func (p *User2) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fiel
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要存储的字段编号列表，如 FieldUser2_Name, FieldUser2_Age
+// fields: 要存储的字段编号列表，如 FieldWeapon_Name, FieldWeapon_Age
 //
-//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUser2IDs）
-func (p *User2) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser2) error {
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldWeaponIDs）
+func (p *Weapon) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldWeapon) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldUser2IDs
+		fieldsToUse = FieldWeaponIDs
 	}
 
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUser2_Id2:
+		case FieldWeapon_Name:
 
-			// --- 直存字段: Id2 ---
-			args = append(args, fieldID, p.Id2)
+			// --- 直存字段: Name ---
+			args = append(args, fieldID, p.Name)
 
-		case FieldUser2_Name2:
+		case FieldWeapon_Damage:
 
-			// --- 直存字段: Name2 ---
-			args = append(args, fieldID, p.Name2)
+			// --- 直存字段: Damage ---
+			args = append(args, fieldID, p.Damage)
 
-		case FieldUser2_Age2:
+		case FieldWeapon_Element:
 
-			// --- 直存字段: Age2 ---
-			args = append(args, fieldID, p.Age2)
-
-		case FieldUser2_I32:
-
-			// --- 直存字段: I32 ---
-			args = append(args, fieldID, p.I32)
-
-		case FieldUser2_I64:
-
-			// --- 直存字段: I64 ---
-			args = append(args, fieldID, p.I64)
-
-		case FieldUser2_List:
-
-			// --- Gob 序列化字段: List ---
-			{
-				var buf bytes.Buffer
-				if err := gob.NewEncoder(&buf).Encode(p.List); err != nil {
-					return fmt.Errorf("gob 编码字段 %s 失败: %v", "List", err)
-				}
-				args = append(args, fieldID, buf.Bytes())
-			}
-
-		case FieldUser2_U:
-
-			// --- Gob 序列化字段: U ---
-			{
-				var buf bytes.Buffer
-				if err := gob.NewEncoder(&buf).Encode(p.U); err != nil {
-					return fmt.Errorf("gob 编码字段 %s 失败: %v", "U", err)
-				}
-				args = append(args, fieldID, buf.Bytes())
-			}
-
-		case FieldUser2_Mp:
-
-			// --- Gob 序列化字段: Mp ---
-			{
-				var buf bytes.Buffer
-				if err := gob.NewEncoder(&buf).Encode(p.Mp); err != nil {
-					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Mp", err)
-				}
-				args = append(args, fieldID, buf.Bytes())
-			}
-
-		case FieldUser2_Ok:
-
-			// --- 直存字段: Ok ---
-			args = append(args, fieldID, p.Ok)
+			// --- 直存字段: Element ---
+			args = append(args, fieldID, p.Element)
 
 		default:
 			return fmt.Errorf("未知字段编号: %d", fieldID)

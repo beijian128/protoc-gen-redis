@@ -12,6 +12,19 @@ import (
 
 `
 
+const codeTemplateEnums = `
+{{range .Enums}}
+// Enum {{.Name}}
+type {{.Name}} int32
+
+const (
+	{{- range .Values}}
+	{{.EnumName}}_{{.Name}} {{.EnumName}} = {{.Value}}
+	{{- end}}
+)
+{{end}}
+`
+
 const codeTemplate = `
 // Field{{.MessageName}} 用于标识 Redis Hash 中的字段编号
 type Field{{.MessageName}} uint32
@@ -87,7 +100,13 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 			{{else}}
 			// --- 直读字段: {{.Name}} ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				{{if eq .GoType "string"}}
+                {{if in .GoType $.Enums}}
+				var intValue int64
+				if intValue, err = strconv.ParseInt(string(val), 10, 64); err != nil {
+					return fmt.Errorf("解析枚举字段 %s 失败: %v", "{{.Name}}", err)
+				}
+				p.{{.Name}} = {{.GoType}}(int32(intValue)) // 假设所有枚举都是 int32 底层
+				{{else if eq .GoType "string"}}
 				p.{{.Name}} = string(val)
 				{{else if eq .GoType "uint64"}}
 				if id, err := strconv.ParseUint(string(val), 10, 64); err == nil {
