@@ -13,4 +13,5 @@ type MessageInfo struct {
 	PackageName string
 	MessageName string
 	Fields      []FieldInfo
+	Imports     []string // 动态生成的 import 列表，如 []string{"bytes", "encoding/gob", ...}
 }

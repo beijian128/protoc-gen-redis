@@ -20,4 +20,5 @@ message User2 {
   repeated int32 list = 6;
   User u = 7;
   map<uint32,int32>mp = 8;
+  bool ok = 9;
 }

@@ -6,12 +6,10 @@ const codeTemplateHead = `
 package {{.PackageName}}
 
 import (
-	"bytes"
-	"encoding/gob"
-	"fmt"
-	"strconv"
-	"github.com/gomodule/redigo/redis"
+	{{range .Imports}} "{{.}}"
+	{{end}}
 )
+
 `
 
 const codeTemplate = `
@@ -40,6 +38,104 @@ type {{.MessageName}} struct {
 func New{{.MessageName}}() *{{.MessageName}} {
 	return &{{.MessageName}}{}
 }
+// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要读取的字段编号列表，如 Field{{.MessageName}}_Name, Field{{.MessageName}}_Age
+//          如果 fields 为空（长度为 0），则默认读取所有字段（即 Field{{.MessageName}}IDs）
+func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...Field{{.MessageName}}) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = Field{{.MessageName}}IDs
+	}
+
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...
+	args := []interface{}{key}
+	for _, fieldID := range fieldsToUse {
+		args = append(args, fieldID)
+	}
+
+	// 一次 HMGET 获取所有字段值
+	reply, err := conn.Do("HMGET", args...)
+	if err != nil {
+		return fmt.Errorf("HMGET 失败: %v", err)
+	}
+
+	// 解析返回的 []interface{} 列表
+	values, err := redis.Values(reply, nil)
+	if err != nil {
+		return fmt.Errorf("解析 HMGET 结果失败: %v", err)
+	}
+
+	// 逐一处理每个字段
+	fieldIndex := 0
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+		{{range .Fields}}
+		case Field{{$.MessageName}}_{{.Name}}:
+			{{if .IsGob}}
+			// --- Gob 反序列化字段: {{.Name}} ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.{{.Name}}); err != nil {
+					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "{{.Name}}", err)
+				}
+			}
+			{{else}}
+			// --- 直读字段: {{.Name}} ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				{{if eq .GoType "string"}}
+				p.{{.Name}} = string(val)
+				{{else if eq .GoType "uint64"}}
+				if id, err := strconv.ParseUint(string(val), 10, 64); err == nil {
+					p.{{.Name}} = id
+				}
+				{{else if eq .GoType "int64"}}
+				if id, err := strconv.ParseInt(string(val), 10, 64); err == nil {
+					p.{{.Name}} = id
+				}
+				{{else if eq .GoType "uint32"}}
+				if id, err := strconv.ParseUint(string(val), 10, 32); err == nil {
+					p.{{.Name}} = uint32(id)
+				}
+				{{else if eq .GoType "int32"}}
+				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
+					p.{{.Name}} = int32(id)
+				}
+				{{else if eq .GoType "float64"}}
+				if f, err := strconv.ParseFloat(string(val), 64); err == nil {
+					p.{{.Name}} = f
+				}
+				{{else if eq .GoType "float32"}}
+				if f, err := strconv.ParseFloat(string(val), 32); err == nil {
+					p.{{.Name}} = float32(f)
+				}
+				{{else if eq .GoType "bool"}}
+				if len(val) > 0 && val[0] == '1' {
+					p.{{.Name}} = true
+				} else if len(val) > 0 && val[0] == '0' {
+					p.{{.Name}} = false
+				}
+				{{else if eq .GoType "[]byte"}}
+				p.{{.Name}} = val
+				{{else}}
+				// 默认尝试字符串
+				p.{{.Name}} = string(val)
+				{{end}}
+			}
+			{{end}}
+		{{end}}
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+		fieldIndex++
+	}
+
+	return nil
+}
 
 // SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
 // conn: Redis 连接
@@ -58,10 +154,9 @@ func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 	}
 
 	for _, fieldID := range fieldsToUse {
-		fieldFound := false
+		switch fieldID {
 		{{range .Fields}}
-		if fieldID == Field{{$.MessageName}}_{{.Name}} {
-			fieldFound = true
+		case Field{{$.MessageName}}_{{.Name}}:
 			{{if .IsGob}}
 			// --- Gob 序列化字段: {{.Name}} ---
 			{
@@ -75,9 +170,8 @@ func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 			// --- 直存字段: {{.Name}} ---
 			args = append(args, fieldID, p.{{.Name}})
 			{{end}}
-		}
 		{{end}}
-		if !fieldFound {
+		default:
 			return fmt.Errorf("未知字段编号: %d", fieldID)
 		}
 	}
@@ -85,5 +179,4 @@ func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 	_, err := conn.Do("HSET", args...)
 	return err
 }
-
 `

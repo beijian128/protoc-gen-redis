@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"sort"
 	"strings"
 	"text/template"
 )
@@ -103,8 +104,56 @@ func GenerateRedisCodeHead(gen *protogen.Plugin, file *protogen.File) ([]byte, e
 
 	info := MessageInfo{
 		PackageName: string(file.GoPackageName),
+		Imports: []string{
+			//"bytes",
+			//"encoding/gob",
+			"fmt",
+			//"strconv",
+			"github.com/gomodule/redigo/redis",
+		},
+	}
+	var needGob, needStrconv bool
+	for _, f := range gen.Files {
+		for _, msg := range f.Messages {
+			for _, field := range msg.Fields {
+				if field.Desc.Cardinality() == protoreflect.Repeated {
+					needGob = true
+
+				} else {
+					switch field.Desc.Kind() {
+					// ✅ 基础类型：直接存取，不使用 gob
+					case protoreflect.Uint32Kind, protoreflect.Uint64Kind, protoreflect.Int32Kind, protoreflect.Int64Kind, protoreflect.FloatKind, protoreflect.DoubleKind:
+						needStrconv = true
+					case protoreflect.BoolKind:
+						//needStrconv = true
+
+					case protoreflect.EnumKind:
+						needStrconv = true
+
+					case protoreflect.BytesKind:
+
+					case protoreflect.MessageKind:
+						needGob = true
+					default:
+
+					}
+				}
+
+			}
+
+		}
 	}
 
+	if needStrconv {
+		info.Imports = append(info.Imports, "strconv")
+	}
+	if needGob {
+		info.Imports = append(info.Imports, "encoding/gob")
+		info.Imports = append(info.Imports, "bytes")
+	}
+	sort.Slice(info.Imports, func(i, j int) bool {
+		return info.Imports[i] < info.Imports[j]
+	})
 	tmpl, err := template.New("redis_code_head").Parse(codeTemplateHead)
 	if err != nil {
 		return nil, fmt.Errorf("解析模板失败: %v", err)

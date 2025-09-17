@@ -64,7 +64,7 @@ func main() {
 
 	{
 		u := cmddb.NewUser2()
-		err = u.GetFields(conn, 2, 1, 0)
+		err = u.GetFields(conn, 2, 1, 0, cmddb.FieldUser2_U)
 		if err != nil {
 			panic(err)
 		}
