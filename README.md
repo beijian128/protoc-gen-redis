@@ -209,9 +209,11 @@ got.GetFriendsAll(conn, 1, 10001, 0)
 REDB#<REDBKey>:<ida>:<idb>
 ```
 
-- `REDBKey`：业务维度 key，即游戏系统 ID（如家园系统=1、好友系统=2…），uint32
+三个维度由业务自定义（插件只按 key_format 顺序填入），游戏开发中常见的划分：
+
+- `REDBKey`：业务维度，通常是系统 ID（如家园系统=1、好友系统=2…），uint32
 - `ida`：玩家 UID，uint64
-- `idb`：赛季 ID 等二级维度，uint64（用不到填 0）
+- `idb`：二级区分 ID（赛季、角色等，不需要填 0），uint64
 
 以家园系统为例：`REDB#1:123456:3` 表示家园系统、玩家 UID 123456、赛季 3。
 

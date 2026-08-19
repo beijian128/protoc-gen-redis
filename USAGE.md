@@ -213,5 +213,5 @@ go run ./Test -config bin/config.json
 - **老数据迁移**：序列化格式从旧版 gob 改为 protobuf wire format 后不兼容，升级需对存量数据一次性迁移
 - **跨文件引用**：字段引用其他 .proto 文件的 message 时，被引用的文件也需用本插件生成（生成代码会调用其 `MarshalRedisProto` / `UnmarshalRedisProto`）；`google.protobuf.Timestamp` 等 well-known 类型暂不支持
 - **集合字段契约**：无元素时整体读回为 nil；`Del<Field>(i)` 删除后不压缩下标，`Append` 从"最大下标 + 1"继续，需要紧凑序列用 `Set<Field>All` 重建
-- **Redis key**：默认 `REDB#<REDBKey>:<ida>:<idb>`，`REDBKey` 为业务维度 key（游戏系统 ID，如家园系统=1），`ida` 为玩家 UID，`idb` 为赛季 ID 等二级维度；可用 `key_format` 定制。以家园系统为例：`REDB#1:123456:3` = 家园系统、玩家 UID 123456、赛季 3
+- **Redis key**：默认 `REDB#<REDBKey>:<ida>:<idb>`，三个维度由业务自定义（插件只按 key_format 顺序填入），游戏开发中常见划分：系统 ID（如家园系统=1）、玩家 UID、二级区分 ID（赛季/角色，不需要填 0）；可用 `key_format` 定制。以家园系统为例：`REDB#1:123456:3` = 家园系统、玩家 UID 123456、赛季 3
 - 生成代码依赖 `github.com/gomodule/redigo/redis`，使用方项目需要引入
