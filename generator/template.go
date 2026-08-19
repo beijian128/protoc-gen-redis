@@ -26,17 +26,18 @@ const (
 `
 
 const codeTemplate = `
-// Field{{.MessageName}} 用于标识 Redis Hash 中的字段编号
-type Field{{.MessageName}} uint32
+{{define "zero"}}{{if .ElemIsGob}}{{.ElemType}}{}{{else if eq .ElemType "string"}}""{{else if eq .ElemType "[]byte"}}nil{{else if eq .ElemType "bool"}}false{{else}}0{{end}}{{end}}
+// {{.FieldType}} 用于标识 Redis Hash 中的字段编号
+type {{.FieldType}} uint32
 
 {{range .Fields}}
-// Field{{$.MessageName}}_{{.Name}} 是字段 {{.Name}} 对应的 Redis Hash field 编号
-const Field{{$.MessageName}}_{{.Name}} Field{{$.MessageName}} = {{.ProtoTag}}
+// {{$.FieldType}}_{{.Name}} 是字段 {{.Name}} 对应的 Redis Hash field 编号
+const {{$.FieldType}}_{{.Name}} {{$.FieldType}} = {{.ProtoTag}}
 {{end}}
 
-// Field{{.MessageName}}IDs 是所有字段编号常量的集合，类型为 []Field{{.MessageName}}
-var Field{{.MessageName}}IDs = []Field{{.MessageName}}{
-	{{range .Fields}}Field{{$.MessageName}}_{{.Name}},
+// {{.FieldType}}IDs 是所有字段编号常量的集合，类型为 []{{.FieldType}}
+var {{.FieldType}}IDs = []{{.FieldType}}{
+	{{range .Fields}}{{$.FieldType}}_{{.Name}},
 	{{end}}
 }
 
@@ -55,24 +56,25 @@ func New{{.MessageName}}() *{{.MessageName}} {
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要读取的字段编号列表，如 Field{{.MessageName}}_Name, Field{{.MessageName}}_Age
-//          如果 fields 为空（长度为 0），则默认读取所有字段（即 Field{{.MessageName}}IDs）
-func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...Field{{.MessageName}}) error {
+// fields: 要读取的字段编号列表，如 {{.FieldType}}_Name, {{.FieldType}}_Age
+//          如果 fields 为空（长度为 0），则默认读取所有字段（即 {{.FieldType}}IDs）
+//          集合字段（map/repeated）从元素级存储（<tag>:<key|index>）整体读回
+func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...{{.FieldType}}) error {
 	key := fmt.Sprintf({{printf "%q" .KeyFormat}}, REDBKey, ida, idb)
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = Field{{.MessageName}}IDs
+		fieldsToUse = {{.FieldType}}IDs
 	}
 
-	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...（集合字段的返回值会被忽略）
 	args := []interface{}{key}
 	for _, fieldID := range fieldsToUse {
 		args = append(args, fieldID)
 	}
 
-	// 一次 HMGET 获取所有字段值
+	// 一次 HMGET 获取所有直存字段值
 	reply, err := conn.Do("HMGET", args...)
 	if err != nil {
 		return fmt.Errorf("HMGET 失败: %v", err)
@@ -89,7 +91,8 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 		{{range .Fields}}
-		case Field{{$.MessageName}}_{{.Name}}:
+		case {{$.FieldType}}_{{.Name}}:
+			{{if eq .Kind "plain"}}
 			{{if .IsGob}}
 			// --- Gob 反序列化字段: {{.Name}} ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -158,6 +161,12 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 				{{end}}
 			}
 			{{end}}
+			{{else}}
+			// --- 集合字段: {{.Name}}（元素级存储，整体读回）---
+			if err := p.Get{{.MethodPrefix}}All(conn, REDBKey, ida, idb); err != nil {
+				return fmt.Errorf("读取字段 %s 失败: %v", "{{.Name}}", err)
+			}
+			{{end}}
 		{{end}}
 		default:
 			return fmt.Errorf("未知字段编号: %d", fieldID)
@@ -172,22 +181,24 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要存储的字段编号列表，如 Field{{.MessageName}}_Name, Field{{.MessageName}}_Age
-//          如果 fields 为空（长度为 0），则默认存储所有字段（即 Field{{.MessageName}}IDs）
-func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...Field{{.MessageName}}) error {
+// fields: 要存储的字段编号列表，如 {{.FieldType}}_Name, {{.FieldType}}_Age
+//          如果 fields 为空（长度为 0），则默认存储所有字段（即 {{.FieldType}}IDs）
+//          集合字段（map/repeated）以元素级存储整体替换（Lua 原子操作）
+func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...{{.FieldType}}) error {
 	key := fmt.Sprintf({{printf "%q" .KeyFormat}}, REDBKey, ida, idb)
 	args := []interface{}{key}
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = Field{{.MessageName}}IDs
+		fieldsToUse = {{.FieldType}}IDs
 	}
 
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 		{{range .Fields}}
-		case Field{{$.MessageName}}_{{.Name}}:
+		case {{$.FieldType}}_{{.Name}}:
+			{{if eq .Kind "plain"}}
 			{{if .IsGob}}
 			// --- Gob 序列化字段: {{.Name}} ---
 			{
@@ -201,13 +212,539 @@ func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 			// --- 直存字段: {{.Name}} ---
 			args = append(args, fieldID, p.{{.Name}})
 			{{end}}
+			{{else}}
+			// --- 集合字段: {{.Name}}（元素级存储，整体替换）---
+			if err := p.Set{{.MethodPrefix}}All(conn, REDBKey, ida, idb, p.{{.Name}}); err != nil {
+				return fmt.Errorf("写入字段 %s 失败: %v", "{{.Name}}", err)
+			}
+			{{end}}
 		{{end}}
 		default:
 			return fmt.Errorf("未知字段编号: %d", fieldID)
 		}
 	}
 
-	_, err := conn.Do("HSET", args...)
+	// 仅当存在直存字段时才执行 HSET（纯集合字段的写入已在各 Set<Field>All 中完成）
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
+	}
+	return nil
+}
+{{range .Fields}}
+{{if eq .Kind "map"}}
+// Set{{.MethodPrefix}} 设置 {{.Name}} 中单个键的值（元素级写入，不触碰其他元素）
+func (p *{{$.MessageName}}) Set{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, k {{.KeyType}}, v {{.ElemType}}) error {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	{{if .ElemIsGob}}
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+		return fmt.Errorf("gob 编码元素失败: %v", err)
+	}
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%v", {{.ProtoTag}}, k), buf.Bytes())
+	{{else}}
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%v", {{.ProtoTag}}, k), v)
+	{{end}}
 	return err
 }
+
+// Get{{.MethodPrefix}} 读取 {{.Name}} 中单个键的值；键不存在时返回零值与 false
+func (p *{{$.MessageName}}) Get{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, k {{.KeyType}}) ({{.ElemType}}, bool, error) {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%v", {{.ProtoTag}}, k))
+	if err != nil {
+		return {{template "zero" .}}, false, err
+	}
+	if reply == nil {
+		return {{template "zero" .}}, false, nil
+	}
+	{{if .ElemIsGob}}
+	b, err := redis.Bytes(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	var v {{.ElemType}}
+	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&v); err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("gob 反序列化元素失败: %v", err)
+	}
+	{{else if .ElemIsEnum}}
+	iv, err := redis.Int(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析枚举元素失败: %v", err)
+	}
+	v := {{.ElemType}}(iv)
+	{{else if eq .ElemType "string"}}
+	v, err := redis.String(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "int32"}}
+	iv, err := redis.Int(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	v := int32(iv)
+	{{else if eq .ElemType "int64"}}
+	v, err := redis.Int64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "uint32"}}
+	iv, err := redis.Uint64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	v := uint32(iv)
+	{{else if eq .ElemType "uint64"}}
+	v, err := redis.Uint64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "float32"}}
+	fv, err := redis.Float64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	v := float32(fv)
+	{{else if eq .ElemType "float64"}}
+	v, err := redis.Float64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "bool"}}
+	v, err := redis.Bool(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "[]byte"}}
+	v, err := redis.Bytes(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{end}}
+	return v, true, nil
+}
+
+// Del{{.MethodPrefix}} 删除 {{.Name}} 中单个键；返回是否删除成功
+func (p *{{$.MessageName}}) Del{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, k {{.KeyType}}) (bool, error) {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%v", {{.ProtoTag}}, k))
+	if err != nil {
+		return false, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n > 0, err
+}
+
+// Get{{.MethodPrefix}}All 读取 {{.Name}} 全部键值，填充到 p.{{.Name}}（未写入过则为空 map）
+func (p *{{$.MessageName}}) Get{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	prefix := fmt.Sprintf("%d:", {{.ProtoTag}})
+	result := make(map[{{.KeyType}}]{{.ElemType}})
+	cursor := "0"
+	for {
+		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+		if err != nil {
+			return fmt.Errorf("HSCAN 失败: %v", err)
+		}
+		vals, err := redis.Values(reply, nil)
+		if err != nil {
+			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
+		}
+		cursor, err = redis.String(vals[0], nil)
+		if err != nil {
+			return fmt.Errorf("解析游标失败: %v", err)
+		}
+		entries, err := redis.Strings(vals[1], nil)
+		if err != nil {
+			return fmt.Errorf("解析条目失败: %v", err)
+		}
+		for i := 0; i+1 < len(entries); i += 2 {
+			{{if eq .KeyType "string"}}
+			kk := entries[i][len(prefix):]
+			{{else if eq .KeyType "int32"}}
+			kv, err := strconv.ParseInt(entries[i][len(prefix):], 10, 32)
+			if err != nil {
+				return fmt.Errorf("解析键失败: %v", err)
+			}
+			kk := int32(kv)
+			{{else if eq .KeyType "int64"}}
+			kv, err := strconv.ParseInt(entries[i][len(prefix):], 10, 64)
+			if err != nil {
+				return fmt.Errorf("解析键失败: %v", err)
+			}
+			kk := kv
+			{{else if eq .KeyType "uint32"}}
+			kv, err := strconv.ParseUint(entries[i][len(prefix):], 10, 32)
+			if err != nil {
+				return fmt.Errorf("解析键失败: %v", err)
+			}
+			kk := uint32(kv)
+			{{else if eq .KeyType "uint64"}}
+			kv, err := strconv.ParseUint(entries[i][len(prefix):], 10, 64)
+			if err != nil {
+				return fmt.Errorf("解析键失败: %v", err)
+			}
+			kk := kv
+			{{else if eq .KeyType "bool"}}
+			kv, err := strconv.ParseBool(entries[i][len(prefix):])
+			if err != nil {
+				return fmt.Errorf("解析键失败: %v", err)
+			}
+			kk := kv
+			{{end}}
+			{{if .ElemIsGob}}
+			var vv {{.ElemType}}
+			if err := gob.NewDecoder(bytes.NewReader([]byte(entries[i+1]))).Decode(&vv); err != nil {
+				return fmt.Errorf("gob 反序列化元素失败: %v", err)
+			}
+			{{else if .ElemIsEnum}}
+			iv, err := redis.Int([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析枚举元素失败: %v", err)
+			}
+			vv := {{.ElemType}}(iv)
+			{{else if eq .ElemType "string"}}
+			vv := entries[i+1]
+			{{else if eq .ElemType "int32"}}
+			iv, err := redis.Int([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			vv := int32(iv)
+			{{else if eq .ElemType "int64"}}
+			vv, err := redis.Int64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			{{else if eq .ElemType "uint32"}}
+			iv, err := redis.Uint64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			vv := uint32(iv)
+			{{else if eq .ElemType "uint64"}}
+			vv, err := redis.Uint64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			{{else if eq .ElemType "float32"}}
+			fv, err := redis.Float64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			vv := float32(fv)
+			{{else if eq .ElemType "float64"}}
+			vv, err := redis.Float64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			{{else if eq .ElemType "bool"}}
+			vv, err := redis.Bool([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			{{else if eq .ElemType "[]byte"}}
+			vv := []byte(entries[i+1])
+			{{end}}
+			result[kk] = vv
+		}
+		if cursor == "0" {
+			break
+		}
+	}
+	if len(result) == 0 {
+		p.{{.Name}} = nil
+		return nil
+	}
+	p.{{.Name}} = result
+	return nil
+}
+
+// Set{{.MethodPrefix}}All 用给定 map 整体替换 {{.Name}}（Lua 原子操作：先清空旧元素再写入）
+func (p *{{$.MessageName}}) Set{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64, m map[{{.KeyType}}]{{.ElemType}}) error {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	const script = {{printf "%q" $.LuaReplaceScript}}
+	args := []interface{}{script, 1, key, {{.ProtoTag}}}
+	for k, v := range m {
+		{{if .ElemIsGob}}
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+			return fmt.Errorf("gob 编码元素失败: %v", err)
+		}
+		args = append(args, fmt.Sprintf("%v", k), buf.Bytes())
+		{{else}}
+		args = append(args, fmt.Sprintf("%v", k), v)
+		{{end}}
+	}
+	_, err := conn.Do("EVAL", args...)
+	return err
+}
+
+// Del{{.MethodPrefix}}All 删除 {{.Name}} 的全部元素（Lua 原子操作）
+func (p *{{$.MessageName}}) Del{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	const script = {{printf "%q" $.LuaDeleteScript}}
+	_, err := conn.Do("EVAL", script, 1, key, {{.ProtoTag}})
+	return err
+}
+{{else if eq .Kind "slice"}}
+// Set{{.MethodPrefix}} 设置 {{.Name}} 中指定下标的元素（元素级写入，不触碰其他元素）
+func (p *{{$.MessageName}}) Set{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int, v {{.ElemType}}) error {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	{{if .ElemIsGob}}
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+		return fmt.Errorf("gob 编码元素失败: %v", err)
+	}
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%d", {{.ProtoTag}}, i), buf.Bytes())
+	{{else}}
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%d", {{.ProtoTag}}, i), v)
+	{{end}}
+	return err
+}
+
+// Get{{.MethodPrefix}} 读取 {{.Name}} 中指定下标的元素；下标不存在时返回零值与 false
+func (p *{{$.MessageName}}) Get{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) ({{.ElemType}}, bool, error) {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%d", {{.ProtoTag}}, i))
+	if err != nil {
+		return {{template "zero" .}}, false, err
+	}
+	if reply == nil {
+		return {{template "zero" .}}, false, nil
+	}
+	{{if .ElemIsGob}}
+	b, err := redis.Bytes(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	var v {{.ElemType}}
+	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&v); err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("gob 反序列化元素失败: %v", err)
+	}
+	{{else if .ElemIsEnum}}
+	iv, err := redis.Int(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析枚举元素失败: %v", err)
+	}
+	v := {{.ElemType}}(iv)
+	{{else if eq .ElemType "string"}}
+	v, err := redis.String(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "int32"}}
+	iv, err := redis.Int(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	v := int32(iv)
+	{{else if eq .ElemType "int64"}}
+	v, err := redis.Int64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "uint32"}}
+	iv, err := redis.Uint64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	v := uint32(iv)
+	{{else if eq .ElemType "uint64"}}
+	v, err := redis.Uint64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "float32"}}
+	fv, err := redis.Float64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	v := float32(fv)
+	{{else if eq .ElemType "float64"}}
+	v, err := redis.Float64(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "bool"}}
+	v, err := redis.Bool(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{else if eq .ElemType "[]byte"}}
+	v, err := redis.Bytes(reply, nil)
+	if err != nil {
+		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	{{end}}
+	return v, true, nil
+}
+
+// Del{{.MethodPrefix}} 删除 {{.Name}} 中指定下标的元素；返回是否删除成功。
+// 注意：删除后不压缩下标，后续 Append 会继续使用最大下标 + 1
+func (p *{{$.MessageName}}) Del{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (bool, error) {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%d", {{.ProtoTag}}, i))
+	if err != nil {
+		return false, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n > 0, err
+}
+
+// Append{{.MethodPrefix}} 追加一个元素到 {{.Name}} 末尾，返回新元素下标（Lua 原子操作）
+func (p *{{$.MessageName}}) Append{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, v {{.ElemType}}) (int, error) {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	const script = {{printf "%q" $.LuaAppendScript}}
+	{{if .ElemIsGob}}
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+		return 0, fmt.Errorf("gob 编码元素失败: %v", err)
+	}
+	reply, err := conn.Do("EVAL", script, 1, key, {{.ProtoTag}}, buf.Bytes())
+	{{else}}
+	reply, err := conn.Do("EVAL", script, 1, key, {{.ProtoTag}}, v)
+	{{end}}
+	if err != nil {
+		return 0, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n, err
+}
+
+// Get{{.MethodPrefix}}All 读取 {{.Name}} 全部元素（按存储下标升序），填充到 p.{{.Name}}（未写入过则为 nil）
+func (p *{{$.MessageName}}) Get{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	prefix := fmt.Sprintf("%d:", {{.ProtoTag}})
+	type item struct {
+		idx int
+		val {{.ElemType}}
+	}
+	var items []item
+	cursor := "0"
+	for {
+		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+		if err != nil {
+			return fmt.Errorf("HSCAN 失败: %v", err)
+		}
+		vals, err := redis.Values(reply, nil)
+		if err != nil {
+			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
+		}
+		cursor, err = redis.String(vals[0], nil)
+		if err != nil {
+			return fmt.Errorf("解析游标失败: %v", err)
+		}
+		entries, err := redis.Strings(vals[1], nil)
+		if err != nil {
+			return fmt.Errorf("解析条目失败: %v", err)
+		}
+		for i := 0; i+1 < len(entries); i += 2 {
+			idx, err := strconv.Atoi(entries[i][len(prefix):])
+			if err != nil {
+				return fmt.Errorf("解析下标失败: %v", err)
+			}
+			{{if .ElemIsGob}}
+			var vv {{.ElemType}}
+			if err := gob.NewDecoder(bytes.NewReader([]byte(entries[i+1]))).Decode(&vv); err != nil {
+				return fmt.Errorf("gob 反序列化元素失败: %v", err)
+			}
+			{{else if .ElemIsEnum}}
+			iv, err := redis.Int([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析枚举元素失败: %v", err)
+			}
+			vv := {{.ElemType}}(iv)
+			{{else if eq .ElemType "string"}}
+			vv := entries[i+1]
+			{{else if eq .ElemType "int32"}}
+			iv, err := redis.Int([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			vv := int32(iv)
+			{{else if eq .ElemType "int64"}}
+			vv, err := redis.Int64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			{{else if eq .ElemType "uint32"}}
+			iv, err := redis.Uint64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			vv := uint32(iv)
+			{{else if eq .ElemType "uint64"}}
+			vv, err := redis.Uint64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			{{else if eq .ElemType "float32"}}
+			fv, err := redis.Float64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			vv := float32(fv)
+			{{else if eq .ElemType "float64"}}
+			vv, err := redis.Float64([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			{{else if eq .ElemType "bool"}}
+			vv, err := redis.Bool([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			{{else if eq .ElemType "[]byte"}}
+			vv := []byte(entries[i+1])
+			{{end}}
+			items = append(items, item{idx: idx, val: vv})
+		}
+		if cursor == "0" {
+			break
+		}
+	}
+	if len(items) == 0 {
+		p.{{.Name}} = nil
+		return nil
+	}
+	sort.Slice(items, func(a, b int) bool { return items[a].idx < items[b].idx })
+	result := make([]{{.ElemType}}, len(items))
+	for i, it := range items {
+		result[i] = it.val
+	}
+	p.{{.Name}} = result
+	return nil
+}
+
+// Set{{.MethodPrefix}}All 用给定切片整体替换 {{.Name}}（Lua 原子操作：清空后按下标 0..n-1 重建，可修复删除留下的空洞）
+func (p *{{$.MessageName}}) Set{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64, s []{{.ElemType}}) error {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	const script = {{printf "%q" $.LuaSliceReplaceScript}}
+	args := []interface{}{script, 1, key, {{.ProtoTag}}}
+	for _, v := range s {
+		{{if .ElemIsGob}}
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+			return fmt.Errorf("gob 编码元素失败: %v", err)
+		}
+		args = append(args, buf.Bytes())
+		{{else}}
+		args = append(args, v)
+		{{end}}
+	}
+	_, err := conn.Do("EVAL", args...)
+	return err
+}
+
+// Del{{.MethodPrefix}}All 删除 {{.Name}} 的全部元素（Lua 原子操作）
+func (p *{{$.MessageName}}) Del{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
+	const script = {{printf "%q" $.LuaDeleteScript}}
+	_, err := conn.Do("EVAL", script, 1, key, {{.ProtoTag}})
+	return err
+}
+{{end}}
+{{end}}
 `

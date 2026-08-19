@@ -7,6 +7,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
+	"sort"
 	"strconv"
 )
 
@@ -27,6 +28,15 @@ const (
 	LoginSource_SOURCE_APP          LoginSource = 1
 	LoginSource_SOURCE_H5           LoginSource = 2
 	LoginSource_SOURCE_MINI_PROGRAM LoginSource = 3
+)
+
+// Enum UserBaseInfo_VipLevel
+type UserBaseInfo_VipLevel int32
+
+const (
+	UserBaseInfo_VIP_NONE UserBaseInfo_VipLevel = 0
+	UserBaseInfo_VIP_1    UserBaseInfo_VipLevel = 1
+	UserBaseInfo_VIP_2    UserBaseInfo_VipLevel = 2
 )
 
 // --- Message: UserBaseInfo ---
@@ -76,6 +86,27 @@ const FieldUserBaseInfo_Weapon FieldUserBaseInfo = 13
 // FieldUserBaseInfo_WeaponMap 是字段 WeaponMap 对应的 Redis Hash field 编号
 const FieldUserBaseInfo_WeaponMap FieldUserBaseInfo = 14
 
+// FieldUserBaseInfo_Coin 是字段 Coin 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Coin FieldUserBaseInfo = 15
+
+// FieldUserBaseInfo_Gem 是字段 Gem 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Gem FieldUserBaseInfo = 16
+
+// FieldUserBaseInfo_Vip 是字段 Vip 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Vip FieldUserBaseInfo = 17
+
+// FieldUserBaseInfo_Score 是字段 Score 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Score FieldUserBaseInfo = 18
+
+// FieldUserBaseInfo_Token 是字段 Token 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Token FieldUserBaseInfo = 19
+
+// FieldUserBaseInfo_Profile 是字段 Profile 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_Profile FieldUserBaseInfo = 20
+
+// FieldUserBaseInfo_VipLevel 是字段 VipLevel 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_VipLevel FieldUserBaseInfo = 21
+
 // FieldUserBaseInfoIDs 是所有字段编号常量的集合，类型为 []FieldUserBaseInfo
 var FieldUserBaseInfoIDs = []FieldUserBaseInfo{
 	FieldUserBaseInfo_UserId,
@@ -92,6 +123,13 @@ var FieldUserBaseInfoIDs = []FieldUserBaseInfo{
 	FieldUserBaseInfo_Weapons,
 	FieldUserBaseInfo_Weapon,
 	FieldUserBaseInfo_WeaponMap,
+	FieldUserBaseInfo_Coin,
+	FieldUserBaseInfo_Gem,
+	FieldUserBaseInfo_Vip,
+	FieldUserBaseInfo_Score,
+	FieldUserBaseInfo_Token,
+	FieldUserBaseInfo_Profile,
+	FieldUserBaseInfo_VipLevel,
 }
 
 // UserBaseInfo 提供针对 UserBaseInfo 消息的 Redis 存取操作
@@ -123,6 +161,20 @@ type UserBaseInfo struct {
 	Weapon Weapon
 
 	WeaponMap map[int32]Weapon
+
+	Coin uint32
+
+	Gem uint64
+
+	Vip bool
+
+	Score float64
+
+	Token []byte
+
+	Profile UserBaseInfo_Profile
+
+	VipLevel UserBaseInfo_VipLevel
 }
 
 // NewUserBaseInfo 创建一个新的 UserBaseInfo 实例
@@ -137,6 +189,7 @@ func NewUserBaseInfo() *UserBaseInfo {
 // fields: 要读取的字段编号列表，如 FieldUserBaseInfo_Name, FieldUserBaseInfo_Age
 //
 //	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldUserBaseInfoIDs）
+//	集合字段（map/repeated）从元素级存储（<tag>:<key|index>）整体读回
 func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 
@@ -146,13 +199,13 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 		fieldsToUse = FieldUserBaseInfoIDs
 	}
 
-	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...（集合字段的返回值会被忽略）
 	args := []interface{}{key}
 	for _, fieldID := range fieldsToUse {
 		args = append(args, fieldID)
 	}
 
-	// 一次 HMGET 获取所有字段值
+	// 一次 HMGET 获取所有直存字段值
 	reply, err := conn.Do("HMGET", args...)
 	if err != nil {
 		return fmt.Errorf("HMGET 失败: %v", err)
@@ -254,20 +307,16 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 		case FieldUserBaseInfo_Friends:
 
-			// --- Gob 反序列化字段: Friends ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Friends); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Friends", err)
-				}
+			// --- 集合字段: Friends（元素级存储，整体读回）---
+			if err := p.GetFriendsAll(conn, REDBKey, ida, idb); err != nil {
+				return fmt.Errorf("读取字段 %s 失败: %v", "Friends", err)
 			}
 
 		case FieldUserBaseInfo_Settings:
 
-			// --- Gob 反序列化字段: Settings ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Settings); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Settings", err)
-				}
+			// --- 集合字段: Settings（元素级存储，整体读回）---
+			if err := p.GetSettingsAll(conn, REDBKey, ida, idb); err != nil {
+				return fmt.Errorf("读取字段 %s 失败: %v", "Settings", err)
 			}
 
 		case FieldUserBaseInfo_LoginSource:
@@ -285,20 +334,16 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 		case FieldUserBaseInfo_Listint32:
 
-			// --- Gob 反序列化字段: Listint32 ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Listint32); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Listint32", err)
-				}
+			// --- 集合字段: Listint32（元素级存储，整体读回）---
+			if err := p.GetListint32All(conn, REDBKey, ida, idb); err != nil {
+				return fmt.Errorf("读取字段 %s 失败: %v", "Listint32", err)
 			}
 
 		case FieldUserBaseInfo_Weapons:
 
-			// --- Gob 反序列化字段: Weapons ---
-			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Weapons); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Weapons", err)
-				}
+			// --- 集合字段: Weapons（元素级存储，整体读回）---
+			if err := p.GetWeaponsAll(conn, REDBKey, ida, idb); err != nil {
+				return fmt.Errorf("读取字段 %s 失败: %v", "Weapons", err)
 			}
 
 		case FieldUserBaseInfo_Weapon:
@@ -312,11 +357,92 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 		case FieldUserBaseInfo_WeaponMap:
 
-			// --- Gob 反序列化字段: WeaponMap ---
+			// --- 集合字段: WeaponMap（元素级存储，整体读回）---
+			if err := p.GetWeaponMapAll(conn, REDBKey, ida, idb); err != nil {
+				return fmt.Errorf("读取字段 %s 失败: %v", "WeaponMap", err)
+			}
+
+		case FieldUserBaseInfo_Coin:
+
+			// --- 直读字段: Coin ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.WeaponMap); err != nil {
-					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "WeaponMap", err)
+
+				id, err := strconv.ParseUint(string(val), 10, 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "Coin", err)
 				}
+				p.Coin = uint32(id)
+
+			}
+
+		case FieldUserBaseInfo_Gem:
+
+			// --- 直读字段: Gem ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				id, err := strconv.ParseUint(string(val), 10, 64)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "Gem", err)
+				}
+				p.Gem = id
+
+			}
+
+		case FieldUserBaseInfo_Vip:
+
+			// --- 直读字段: Vip ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				if len(val) > 0 && val[0] == '1' {
+					p.Vip = true
+				} else if len(val) > 0 && val[0] == '0' {
+					p.Vip = false
+				}
+
+			}
+
+		case FieldUserBaseInfo_Score:
+
+			// --- 直读字段: Score ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				f, err := strconv.ParseFloat(string(val), 64)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "Score", err)
+				}
+				p.Score = f
+
+			}
+
+		case FieldUserBaseInfo_Token:
+
+			// --- 直读字段: Token ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				p.Token = val
+
+			}
+
+		case FieldUserBaseInfo_Profile:
+
+			// --- Gob 反序列化字段: Profile ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := gob.NewDecoder(bytes.NewReader(val)).Decode(&p.Profile); err != nil {
+					return fmt.Errorf("gob 反序列化字段 %s 失败: %v", "Profile", err)
+				}
+			}
+
+		case FieldUserBaseInfo_VipLevel:
+
+			// --- 直读字段: VipLevel ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				intValue, err := strconv.ParseInt(string(val), 10, 64)
+				if err != nil {
+					return fmt.Errorf("解析枚举字段 %s 失败: %v", "VipLevel", err)
+				}
+				p.VipLevel = UserBaseInfo_VipLevel(int32(intValue))
+
 			}
 
 		default:
@@ -335,6 +461,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 // fields: 要存储的字段编号列表，如 FieldUserBaseInfo_Name, FieldUserBaseInfo_Age
 //
 //	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUserBaseInfoIDs）
+//	集合字段（map/repeated）以元素级存储整体替换（Lua 原子操作）
 func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
@@ -385,24 +512,16 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 		case FieldUserBaseInfo_Friends:
 
-			// --- Gob 序列化字段: Friends ---
-			{
-				var buf bytes.Buffer
-				if err := gob.NewEncoder(&buf).Encode(p.Friends); err != nil {
-					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Friends", err)
-				}
-				args = append(args, fieldID, buf.Bytes())
+			// --- 集合字段: Friends（元素级存储，整体替换）---
+			if err := p.SetFriendsAll(conn, REDBKey, ida, idb, p.Friends); err != nil {
+				return fmt.Errorf("写入字段 %s 失败: %v", "Friends", err)
 			}
 
 		case FieldUserBaseInfo_Settings:
 
-			// --- Gob 序列化字段: Settings ---
-			{
-				var buf bytes.Buffer
-				if err := gob.NewEncoder(&buf).Encode(p.Settings); err != nil {
-					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Settings", err)
-				}
-				args = append(args, fieldID, buf.Bytes())
+			// --- 集合字段: Settings（元素级存储，整体替换）---
+			if err := p.SetSettingsAll(conn, REDBKey, ida, idb, p.Settings); err != nil {
+				return fmt.Errorf("写入字段 %s 失败: %v", "Settings", err)
 			}
 
 		case FieldUserBaseInfo_LoginSource:
@@ -412,24 +531,16 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 		case FieldUserBaseInfo_Listint32:
 
-			// --- Gob 序列化字段: Listint32 ---
-			{
-				var buf bytes.Buffer
-				if err := gob.NewEncoder(&buf).Encode(p.Listint32); err != nil {
-					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Listint32", err)
-				}
-				args = append(args, fieldID, buf.Bytes())
+			// --- 集合字段: Listint32（元素级存储，整体替换）---
+			if err := p.SetListint32All(conn, REDBKey, ida, idb, p.Listint32); err != nil {
+				return fmt.Errorf("写入字段 %s 失败: %v", "Listint32", err)
 			}
 
 		case FieldUserBaseInfo_Weapons:
 
-			// --- Gob 序列化字段: Weapons ---
-			{
-				var buf bytes.Buffer
-				if err := gob.NewEncoder(&buf).Encode(p.Weapons); err != nil {
-					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Weapons", err)
-				}
-				args = append(args, fieldID, buf.Bytes())
+			// --- 集合字段: Weapons（元素级存储，整体替换）---
+			if err := p.SetWeaponsAll(conn, REDBKey, ida, idb, p.Weapons); err != nil {
+				return fmt.Errorf("写入字段 %s 失败: %v", "Weapons", err)
 			}
 
 		case FieldUserBaseInfo_Weapon:
@@ -445,22 +556,848 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 		case FieldUserBaseInfo_WeaponMap:
 
-			// --- Gob 序列化字段: WeaponMap ---
+			// --- 集合字段: WeaponMap（元素级存储，整体替换）---
+			if err := p.SetWeaponMapAll(conn, REDBKey, ida, idb, p.WeaponMap); err != nil {
+				return fmt.Errorf("写入字段 %s 失败: %v", "WeaponMap", err)
+			}
+
+		case FieldUserBaseInfo_Coin:
+
+			// --- 直存字段: Coin ---
+			args = append(args, fieldID, p.Coin)
+
+		case FieldUserBaseInfo_Gem:
+
+			// --- 直存字段: Gem ---
+			args = append(args, fieldID, p.Gem)
+
+		case FieldUserBaseInfo_Vip:
+
+			// --- 直存字段: Vip ---
+			args = append(args, fieldID, p.Vip)
+
+		case FieldUserBaseInfo_Score:
+
+			// --- 直存字段: Score ---
+			args = append(args, fieldID, p.Score)
+
+		case FieldUserBaseInfo_Token:
+
+			// --- 直存字段: Token ---
+			args = append(args, fieldID, p.Token)
+
+		case FieldUserBaseInfo_Profile:
+
+			// --- Gob 序列化字段: Profile ---
 			{
 				var buf bytes.Buffer
-				if err := gob.NewEncoder(&buf).Encode(p.WeaponMap); err != nil {
-					return fmt.Errorf("gob 编码字段 %s 失败: %v", "WeaponMap", err)
+				if err := gob.NewEncoder(&buf).Encode(p.Profile); err != nil {
+					return fmt.Errorf("gob 编码字段 %s 失败: %v", "Profile", err)
 				}
 				args = append(args, fieldID, buf.Bytes())
 			}
+
+		case FieldUserBaseInfo_VipLevel:
+
+			// --- 直存字段: VipLevel ---
+			args = append(args, fieldID, p.VipLevel)
 
 		default:
 			return fmt.Errorf("未知字段编号: %d", fieldID)
 		}
 	}
 
-	_, err := conn.Do("HSET", args...)
+	// 仅当存在直存字段时才执行 HSET（纯集合字段的写入已在各 Set<Field>All 中完成）
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
+	}
+	return nil
+}
+
+// SetFriends 设置 Friends 中指定下标的元素（元素级写入，不触碰其他元素）
+func (p *UserBaseInfo) SetFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int, v string) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%d", 8, i), v)
+
 	return err
+}
+
+// GetFriends 读取 Friends 中指定下标的元素；下标不存在时返回零值与 false
+func (p *UserBaseInfo) GetFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (string, bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%d", 8, i))
+	if err != nil {
+		return "", false, err
+	}
+	if reply == nil {
+		return "", false, nil
+	}
+
+	v, err := redis.String(reply, nil)
+	if err != nil {
+		return "", false, fmt.Errorf("解析元素失败: %v", err)
+	}
+
+	return v, true, nil
+}
+
+// DelFriends 删除 Friends 中指定下标的元素；返回是否删除成功。
+// 注意：删除后不压缩下标，后续 Append 会继续使用最大下标 + 1
+func (p *UserBaseInfo) DelFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%d", 8, i))
+	if err != nil {
+		return false, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n > 0, err
+}
+
+// AppendFriends 追加一个元素到 Friends 末尾，返回新元素下标（Lua 原子操作）
+func (p *UserBaseInfo) AppendFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, v string) (int, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal max = -1\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    local idx = tonumber(string.sub(entries[i], #prefix + 1))\n    if idx and idx > max then max = idx end\n  end\nuntil cursor == \"0\"\nredis.call(\"HSET\", KEYS[1], prefix..(max + 1), ARGV[2])\nreturn max + 1"
+
+	reply, err := conn.Do("EVAL", script, 1, key, 8, v)
+
+	if err != nil {
+		return 0, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n, err
+}
+
+// GetFriendsAll 读取 Friends 全部元素（按存储下标升序），填充到 p.Friends（未写入过则为 nil）
+func (p *UserBaseInfo) GetFriendsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	prefix := fmt.Sprintf("%d:", 8)
+	type item struct {
+		idx int
+		val string
+	}
+	var items []item
+	cursor := "0"
+	for {
+		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+		if err != nil {
+			return fmt.Errorf("HSCAN 失败: %v", err)
+		}
+		vals, err := redis.Values(reply, nil)
+		if err != nil {
+			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
+		}
+		cursor, err = redis.String(vals[0], nil)
+		if err != nil {
+			return fmt.Errorf("解析游标失败: %v", err)
+		}
+		entries, err := redis.Strings(vals[1], nil)
+		if err != nil {
+			return fmt.Errorf("解析条目失败: %v", err)
+		}
+		for i := 0; i+1 < len(entries); i += 2 {
+			idx, err := strconv.Atoi(entries[i][len(prefix):])
+			if err != nil {
+				return fmt.Errorf("解析下标失败: %v", err)
+			}
+
+			vv := entries[i+1]
+
+			items = append(items, item{idx: idx, val: vv})
+		}
+		if cursor == "0" {
+			break
+		}
+	}
+	if len(items) == 0 {
+		p.Friends = nil
+		return nil
+	}
+	sort.Slice(items, func(a, b int) bool { return items[a].idx < items[b].idx })
+	result := make([]string, len(items))
+	for i, it := range items {
+		result[i] = it.val
+	}
+	p.Friends = result
+	return nil
+}
+
+// SetFriendsAll 用给定切片整体替换 Friends（Lua 原子操作：清空后按下标 0..n-1 重建，可修复删除留下的空洞）
+func (p *UserBaseInfo) SetFriendsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64, s []string) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV do\n  redis.call(\"HSET\", KEYS[1], prefix..(i - 2), ARGV[i])\nend\nreturn 1"
+	args := []interface{}{script, 1, key, 8}
+	for _, v := range s {
+
+		args = append(args, v)
+
+	}
+	_, err := conn.Do("EVAL", args...)
+	return err
+}
+
+// DelFriendsAll 删除 Friends 的全部元素（Lua 原子操作）
+func (p *UserBaseInfo) DelFriendsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
+	_, err := conn.Do("EVAL", script, 1, key, 8)
+	return err
+}
+
+// SetSettings 设置 Settings 中单个键的值（元素级写入，不触碰其他元素）
+func (p *UserBaseInfo) SetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string, v string) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%v", 9, k), v)
+
+	return err
+}
+
+// GetSettings 读取 Settings 中单个键的值；键不存在时返回零值与 false
+func (p *UserBaseInfo) GetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (string, bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%v", 9, k))
+	if err != nil {
+		return "", false, err
+	}
+	if reply == nil {
+		return "", false, nil
+	}
+
+	v, err := redis.String(reply, nil)
+	if err != nil {
+		return "", false, fmt.Errorf("解析元素失败: %v", err)
+	}
+
+	return v, true, nil
+}
+
+// DelSettings 删除 Settings 中单个键；返回是否删除成功
+func (p *UserBaseInfo) DelSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%v", 9, k))
+	if err != nil {
+		return false, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n > 0, err
+}
+
+// GetSettingsAll 读取 Settings 全部键值，填充到 p.Settings（未写入过则为空 map）
+func (p *UserBaseInfo) GetSettingsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	prefix := fmt.Sprintf("%d:", 9)
+	result := make(map[string]string)
+	cursor := "0"
+	for {
+		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+		if err != nil {
+			return fmt.Errorf("HSCAN 失败: %v", err)
+		}
+		vals, err := redis.Values(reply, nil)
+		if err != nil {
+			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
+		}
+		cursor, err = redis.String(vals[0], nil)
+		if err != nil {
+			return fmt.Errorf("解析游标失败: %v", err)
+		}
+		entries, err := redis.Strings(vals[1], nil)
+		if err != nil {
+			return fmt.Errorf("解析条目失败: %v", err)
+		}
+		for i := 0; i+1 < len(entries); i += 2 {
+
+			kk := entries[i][len(prefix):]
+
+			vv := entries[i+1]
+
+			result[kk] = vv
+		}
+		if cursor == "0" {
+			break
+		}
+	}
+	if len(result) == 0 {
+		p.Settings = nil
+		return nil
+	}
+	p.Settings = result
+	return nil
+}
+
+// SetSettingsAll 用给定 map 整体替换 Settings（Lua 原子操作：先清空旧元素再写入）
+func (p *UserBaseInfo) SetSettingsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64, m map[string]string) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV, 2 do\n  redis.call(\"HSET\", KEYS[1], prefix..ARGV[i], ARGV[i+1])\nend\nreturn 1"
+	args := []interface{}{script, 1, key, 9}
+	for k, v := range m {
+
+		args = append(args, fmt.Sprintf("%v", k), v)
+
+	}
+	_, err := conn.Do("EVAL", args...)
+	return err
+}
+
+// DelSettingsAll 删除 Settings 的全部元素（Lua 原子操作）
+func (p *UserBaseInfo) DelSettingsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
+	_, err := conn.Do("EVAL", script, 1, key, 9)
+	return err
+}
+
+// SetListint32 设置 Listint32 中指定下标的元素（元素级写入，不触碰其他元素）
+func (p *UserBaseInfo) SetListint32(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int, v int32) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%d", 11, i), v)
+
+	return err
+}
+
+// GetListint32 读取 Listint32 中指定下标的元素；下标不存在时返回零值与 false
+func (p *UserBaseInfo) GetListint32(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (int32, bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%d", 11, i))
+	if err != nil {
+		return 0, false, err
+	}
+	if reply == nil {
+		return 0, false, nil
+	}
+
+	iv, err := redis.Int(reply, nil)
+	if err != nil {
+		return 0, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	v := int32(iv)
+
+	return v, true, nil
+}
+
+// DelListint32 删除 Listint32 中指定下标的元素；返回是否删除成功。
+// 注意：删除后不压缩下标，后续 Append 会继续使用最大下标 + 1
+func (p *UserBaseInfo) DelListint32(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%d", 11, i))
+	if err != nil {
+		return false, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n > 0, err
+}
+
+// AppendListint32 追加一个元素到 Listint32 末尾，返回新元素下标（Lua 原子操作）
+func (p *UserBaseInfo) AppendListint32(conn redis.Conn, REDBKey uint32, ida, idb uint64, v int32) (int, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal max = -1\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    local idx = tonumber(string.sub(entries[i], #prefix + 1))\n    if idx and idx > max then max = idx end\n  end\nuntil cursor == \"0\"\nredis.call(\"HSET\", KEYS[1], prefix..(max + 1), ARGV[2])\nreturn max + 1"
+
+	reply, err := conn.Do("EVAL", script, 1, key, 11, v)
+
+	if err != nil {
+		return 0, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n, err
+}
+
+// GetListint32All 读取 Listint32 全部元素（按存储下标升序），填充到 p.Listint32（未写入过则为 nil）
+func (p *UserBaseInfo) GetListint32All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	prefix := fmt.Sprintf("%d:", 11)
+	type item struct {
+		idx int
+		val int32
+	}
+	var items []item
+	cursor := "0"
+	for {
+		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+		if err != nil {
+			return fmt.Errorf("HSCAN 失败: %v", err)
+		}
+		vals, err := redis.Values(reply, nil)
+		if err != nil {
+			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
+		}
+		cursor, err = redis.String(vals[0], nil)
+		if err != nil {
+			return fmt.Errorf("解析游标失败: %v", err)
+		}
+		entries, err := redis.Strings(vals[1], nil)
+		if err != nil {
+			return fmt.Errorf("解析条目失败: %v", err)
+		}
+		for i := 0; i+1 < len(entries); i += 2 {
+			idx, err := strconv.Atoi(entries[i][len(prefix):])
+			if err != nil {
+				return fmt.Errorf("解析下标失败: %v", err)
+			}
+
+			iv, err := redis.Int([]byte(entries[i+1]), nil)
+			if err != nil {
+				return fmt.Errorf("解析元素失败: %v", err)
+			}
+			vv := int32(iv)
+
+			items = append(items, item{idx: idx, val: vv})
+		}
+		if cursor == "0" {
+			break
+		}
+	}
+	if len(items) == 0 {
+		p.Listint32 = nil
+		return nil
+	}
+	sort.Slice(items, func(a, b int) bool { return items[a].idx < items[b].idx })
+	result := make([]int32, len(items))
+	for i, it := range items {
+		result[i] = it.val
+	}
+	p.Listint32 = result
+	return nil
+}
+
+// SetListint32All 用给定切片整体替换 Listint32（Lua 原子操作：清空后按下标 0..n-1 重建，可修复删除留下的空洞）
+func (p *UserBaseInfo) SetListint32All(conn redis.Conn, REDBKey uint32, ida, idb uint64, s []int32) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV do\n  redis.call(\"HSET\", KEYS[1], prefix..(i - 2), ARGV[i])\nend\nreturn 1"
+	args := []interface{}{script, 1, key, 11}
+	for _, v := range s {
+
+		args = append(args, v)
+
+	}
+	_, err := conn.Do("EVAL", args...)
+	return err
+}
+
+// DelListint32All 删除 Listint32 的全部元素（Lua 原子操作）
+func (p *UserBaseInfo) DelListint32All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
+	_, err := conn.Do("EVAL", script, 1, key, 11)
+	return err
+}
+
+// SetWeapons 设置 Weapons 中指定下标的元素（元素级写入，不触碰其他元素）
+func (p *UserBaseInfo) SetWeapons(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int, v Weapon) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+		return fmt.Errorf("gob 编码元素失败: %v", err)
+	}
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%d", 12, i), buf.Bytes())
+
+	return err
+}
+
+// GetWeapons 读取 Weapons 中指定下标的元素；下标不存在时返回零值与 false
+func (p *UserBaseInfo) GetWeapons(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (Weapon, bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%d", 12, i))
+	if err != nil {
+		return Weapon{}, false, err
+	}
+	if reply == nil {
+		return Weapon{}, false, nil
+	}
+
+	b, err := redis.Bytes(reply, nil)
+	if err != nil {
+		return Weapon{}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	var v Weapon
+	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&v); err != nil {
+		return Weapon{}, false, fmt.Errorf("gob 反序列化元素失败: %v", err)
+	}
+
+	return v, true, nil
+}
+
+// DelWeapons 删除 Weapons 中指定下标的元素；返回是否删除成功。
+// 注意：删除后不压缩下标，后续 Append 会继续使用最大下标 + 1
+func (p *UserBaseInfo) DelWeapons(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%d", 12, i))
+	if err != nil {
+		return false, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n > 0, err
+}
+
+// AppendWeapons 追加一个元素到 Weapons 末尾，返回新元素下标（Lua 原子操作）
+func (p *UserBaseInfo) AppendWeapons(conn redis.Conn, REDBKey uint32, ida, idb uint64, v Weapon) (int, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal max = -1\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    local idx = tonumber(string.sub(entries[i], #prefix + 1))\n    if idx and idx > max then max = idx end\n  end\nuntil cursor == \"0\"\nredis.call(\"HSET\", KEYS[1], prefix..(max + 1), ARGV[2])\nreturn max + 1"
+
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+		return 0, fmt.Errorf("gob 编码元素失败: %v", err)
+	}
+	reply, err := conn.Do("EVAL", script, 1, key, 12, buf.Bytes())
+
+	if err != nil {
+		return 0, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n, err
+}
+
+// GetWeaponsAll 读取 Weapons 全部元素（按存储下标升序），填充到 p.Weapons（未写入过则为 nil）
+func (p *UserBaseInfo) GetWeaponsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	prefix := fmt.Sprintf("%d:", 12)
+	type item struct {
+		idx int
+		val Weapon
+	}
+	var items []item
+	cursor := "0"
+	for {
+		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+		if err != nil {
+			return fmt.Errorf("HSCAN 失败: %v", err)
+		}
+		vals, err := redis.Values(reply, nil)
+		if err != nil {
+			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
+		}
+		cursor, err = redis.String(vals[0], nil)
+		if err != nil {
+			return fmt.Errorf("解析游标失败: %v", err)
+		}
+		entries, err := redis.Strings(vals[1], nil)
+		if err != nil {
+			return fmt.Errorf("解析条目失败: %v", err)
+		}
+		for i := 0; i+1 < len(entries); i += 2 {
+			idx, err := strconv.Atoi(entries[i][len(prefix):])
+			if err != nil {
+				return fmt.Errorf("解析下标失败: %v", err)
+			}
+
+			var vv Weapon
+			if err := gob.NewDecoder(bytes.NewReader([]byte(entries[i+1]))).Decode(&vv); err != nil {
+				return fmt.Errorf("gob 反序列化元素失败: %v", err)
+			}
+
+			items = append(items, item{idx: idx, val: vv})
+		}
+		if cursor == "0" {
+			break
+		}
+	}
+	if len(items) == 0 {
+		p.Weapons = nil
+		return nil
+	}
+	sort.Slice(items, func(a, b int) bool { return items[a].idx < items[b].idx })
+	result := make([]Weapon, len(items))
+	for i, it := range items {
+		result[i] = it.val
+	}
+	p.Weapons = result
+	return nil
+}
+
+// SetWeaponsAll 用给定切片整体替换 Weapons（Lua 原子操作：清空后按下标 0..n-1 重建，可修复删除留下的空洞）
+func (p *UserBaseInfo) SetWeaponsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64, s []Weapon) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV do\n  redis.call(\"HSET\", KEYS[1], prefix..(i - 2), ARGV[i])\nend\nreturn 1"
+	args := []interface{}{script, 1, key, 12}
+	for _, v := range s {
+
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+			return fmt.Errorf("gob 编码元素失败: %v", err)
+		}
+		args = append(args, buf.Bytes())
+
+	}
+	_, err := conn.Do("EVAL", args...)
+	return err
+}
+
+// DelWeaponsAll 删除 Weapons 的全部元素（Lua 原子操作）
+func (p *UserBaseInfo) DelWeaponsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
+	_, err := conn.Do("EVAL", script, 1, key, 12)
+	return err
+}
+
+// SetWeaponMap 设置 WeaponMap 中单个键的值（元素级写入，不触碰其他元素）
+func (p *UserBaseInfo) SetWeaponMap(conn redis.Conn, REDBKey uint32, ida, idb uint64, k int32, v Weapon) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+		return fmt.Errorf("gob 编码元素失败: %v", err)
+	}
+	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%v", 14, k), buf.Bytes())
+
+	return err
+}
+
+// GetWeaponMap 读取 WeaponMap 中单个键的值；键不存在时返回零值与 false
+func (p *UserBaseInfo) GetWeaponMap(conn redis.Conn, REDBKey uint32, ida, idb uint64, k int32) (Weapon, bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%v", 14, k))
+	if err != nil {
+		return Weapon{}, false, err
+	}
+	if reply == nil {
+		return Weapon{}, false, nil
+	}
+
+	b, err := redis.Bytes(reply, nil)
+	if err != nil {
+		return Weapon{}, false, fmt.Errorf("解析元素失败: %v", err)
+	}
+	var v Weapon
+	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&v); err != nil {
+		return Weapon{}, false, fmt.Errorf("gob 反序列化元素失败: %v", err)
+	}
+
+	return v, true, nil
+}
+
+// DelWeaponMap 删除 WeaponMap 中单个键；返回是否删除成功
+func (p *UserBaseInfo) DelWeaponMap(conn redis.Conn, REDBKey uint32, ida, idb uint64, k int32) (bool, error) {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%v", 14, k))
+	if err != nil {
+		return false, err
+	}
+	n, err := redis.Int(reply, nil)
+	return n > 0, err
+}
+
+// GetWeaponMapAll 读取 WeaponMap 全部键值，填充到 p.WeaponMap（未写入过则为空 map）
+func (p *UserBaseInfo) GetWeaponMapAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	prefix := fmt.Sprintf("%d:", 14)
+	result := make(map[int32]Weapon)
+	cursor := "0"
+	for {
+		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+		if err != nil {
+			return fmt.Errorf("HSCAN 失败: %v", err)
+		}
+		vals, err := redis.Values(reply, nil)
+		if err != nil {
+			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
+		}
+		cursor, err = redis.String(vals[0], nil)
+		if err != nil {
+			return fmt.Errorf("解析游标失败: %v", err)
+		}
+		entries, err := redis.Strings(vals[1], nil)
+		if err != nil {
+			return fmt.Errorf("解析条目失败: %v", err)
+		}
+		for i := 0; i+1 < len(entries); i += 2 {
+
+			kv, err := strconv.ParseInt(entries[i][len(prefix):], 10, 32)
+			if err != nil {
+				return fmt.Errorf("解析键失败: %v", err)
+			}
+			kk := int32(kv)
+
+			var vv Weapon
+			if err := gob.NewDecoder(bytes.NewReader([]byte(entries[i+1]))).Decode(&vv); err != nil {
+				return fmt.Errorf("gob 反序列化元素失败: %v", err)
+			}
+
+			result[kk] = vv
+		}
+		if cursor == "0" {
+			break
+		}
+	}
+	if len(result) == 0 {
+		p.WeaponMap = nil
+		return nil
+	}
+	p.WeaponMap = result
+	return nil
+}
+
+// SetWeaponMapAll 用给定 map 整体替换 WeaponMap（Lua 原子操作：先清空旧元素再写入）
+func (p *UserBaseInfo) SetWeaponMapAll(conn redis.Conn, REDBKey uint32, ida, idb uint64, m map[int32]Weapon) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV, 2 do\n  redis.call(\"HSET\", KEYS[1], prefix..ARGV[i], ARGV[i+1])\nend\nreturn 1"
+	args := []interface{}{script, 1, key, 14}
+	for k, v := range m {
+
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(v); err != nil {
+			return fmt.Errorf("gob 编码元素失败: %v", err)
+		}
+		args = append(args, fmt.Sprintf("%v", k), buf.Bytes())
+
+	}
+	_, err := conn.Do("EVAL", args...)
+	return err
+}
+
+// DelWeaponMapAll 删除 WeaponMap 的全部元素（Lua 原子操作）
+func (p *UserBaseInfo) DelWeaponMapAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
+	_, err := conn.Do("EVAL", script, 1, key, 14)
+	return err
+}
+
+// --- Message: UserBaseInfo_Profile ---
+
+// FieldUserBaseInfo_ProfileX 用于标识 Redis Hash 中的字段编号
+type FieldUserBaseInfo_ProfileX uint32
+
+// FieldUserBaseInfo_ProfileX_Nickname 是字段 Nickname 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_ProfileX_Nickname FieldUserBaseInfo_ProfileX = 1
+
+// FieldUserBaseInfo_ProfileX_Age 是字段 Age 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_ProfileX_Age FieldUserBaseInfo_ProfileX = 2
+
+// FieldUserBaseInfo_ProfileXIDs 是所有字段编号常量的集合，类型为 []FieldUserBaseInfo_ProfileX
+var FieldUserBaseInfo_ProfileXIDs = []FieldUserBaseInfo_ProfileX{
+	FieldUserBaseInfo_ProfileX_Nickname,
+	FieldUserBaseInfo_ProfileX_Age,
+}
+
+// UserBaseInfo_Profile 提供针对 UserBaseInfo_Profile 消息的 Redis 存取操作
+type UserBaseInfo_Profile struct {
+	Nickname string
+
+	Age int32
+}
+
+// NewUserBaseInfo_Profile 创建一个新的 UserBaseInfo_Profile 实例
+func NewUserBaseInfo_Profile() *UserBaseInfo_Profile {
+	return &UserBaseInfo_Profile{}
+}
+
+// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要读取的字段编号列表，如 FieldUserBaseInfo_ProfileX_Name, FieldUserBaseInfo_ProfileX_Age
+//
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldUserBaseInfo_ProfileXIDs）
+//	集合字段（map/repeated）从元素级存储（<tag>:<key|index>）整体读回
+func (p *UserBaseInfo_Profile) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo_ProfileX) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldUserBaseInfo_ProfileXIDs
+	}
+
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...（集合字段的返回值会被忽略）
+	args := []interface{}{key}
+	for _, fieldID := range fieldsToUse {
+		args = append(args, fieldID)
+	}
+
+	// 一次 HMGET 获取所有直存字段值
+	reply, err := conn.Do("HMGET", args...)
+	if err != nil {
+		return fmt.Errorf("HMGET 失败: %v", err)
+	}
+
+	// 解析返回的 []interface{} 列表
+	values, err := redis.Values(reply, nil)
+	if err != nil {
+		return fmt.Errorf("解析 HMGET 结果失败: %v", err)
+	}
+
+	// 逐一处理每个字段
+	fieldIndex := 0
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldUserBaseInfo_ProfileX_Nickname:
+
+			// --- 直读字段: Nickname ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				p.Nickname = string(val)
+
+			}
+
+		case FieldUserBaseInfo_ProfileX_Age:
+
+			// --- 直读字段: Age ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+
+				id, err := strconv.ParseInt(string(val), 10, 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "Age", err)
+				}
+				p.Age = int32(id)
+
+			}
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+		fieldIndex++
+	}
+
+	return nil
+}
+
+// SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要存储的字段编号列表，如 FieldUserBaseInfo_ProfileX_Name, FieldUserBaseInfo_ProfileX_Age
+//
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUserBaseInfo_ProfileXIDs）
+//	集合字段（map/repeated）以元素级存储整体替换（Lua 原子操作）
+func (p *UserBaseInfo_Profile) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo_ProfileX) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	args := []interface{}{key}
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldUserBaseInfo_ProfileXIDs
+	}
+
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldUserBaseInfo_ProfileX_Nickname:
+
+			// --- 直存字段: Nickname ---
+			args = append(args, fieldID, p.Nickname)
+
+		case FieldUserBaseInfo_ProfileX_Age:
+
+			// --- 直存字段: Age ---
+			args = append(args, fieldID, p.Age)
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+	}
+
+	// 仅当存在直存字段时才执行 HSET（纯集合字段的写入已在各 Set<Field>All 中完成）
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
+	}
+	return nil
 }
 
 // --- Message: Weapon ---
@@ -505,6 +1442,7 @@ func NewWeapon() *Weapon {
 // fields: 要读取的字段编号列表，如 FieldWeapon_Name, FieldWeapon_Age
 //
 //	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldWeaponIDs）
+//	集合字段（map/repeated）从元素级存储（<tag>:<key|index>）整体读回
 func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldWeapon) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 
@@ -514,13 +1452,13 @@ func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 		fieldsToUse = FieldWeaponIDs
 	}
 
-	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...（集合字段的返回值会被忽略）
 	args := []interface{}{key}
 	for _, fieldID := range fieldsToUse {
 		args = append(args, fieldID)
 	}
 
-	// 一次 HMGET 获取所有字段值
+	// 一次 HMGET 获取所有直存字段值
 	reply, err := conn.Do("HMGET", args...)
 	if err != nil {
 		return fmt.Errorf("HMGET 失败: %v", err)
@@ -584,6 +1522,7 @@ func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 // fields: 要存储的字段编号列表，如 FieldWeapon_Name, FieldWeapon_Age
 //
 //	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldWeaponIDs）
+//	集合字段（map/repeated）以元素级存储整体替换（Lua 原子操作）
 func (p *Weapon) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldWeapon) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
@@ -617,6 +1556,10 @@ func (p *Weapon) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 		}
 	}
 
-	_, err := conn.Do("HSET", args...)
-	return err
+	// 仅当存在直存字段时才执行 HSET（纯集合字段的写入已在各 Set<Field>All 中完成）
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
+	}
+	return nil
 }

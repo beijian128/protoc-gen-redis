@@ -19,7 +19,7 @@ protoc-gen-redis 是一个基于 Protocol Buffers (protoc) 生态的代码生成
 | 🎯 Redis Hash 存储 | 为每个 Protobuf Message 生成对应的 Redis Hash 操作代码，字段映射到 Hash Field |
 | 🧩 自动生成 Redis 方法 | 包括 `GetFields()` 和 `SetFields()`，支持按需读取/写入字段 |
 | 🎨 字段常量映射 | 基于 proto field number 自动生成 `Field_<FieldName> = <tag>` 常量 |
-| 📦 Gob 序列化支持 | 自动识别 nested message、repeated、map 等复杂类型，使用 Gob 序列化存取 |
+| 📦 元素级集合存储 | map / repeated 按元素拆分为独立 hash field，单元素 O(1) 读写；message 元素单元素 Gob 序列化 |
 | 🌐 枚举类型支持 | 为 Protobuf 枚举生成对应的 Go 枚举类型（如 `Gender`）及常量（如 `Gender_GENDER_UNKNOWN = 0`），命名与 protoc-gen-go 一致 |
 | 🧱 分片 Key 设计 | 支持自定义业务维度 Key 与分片维度（如 `REDB#<key>:<ida>:<idb>`），格式可通过 `key_format` 参数定制 |
 | 🛠️ 代码模板驱动 | 基于 Go text/template，易于扩展与定制 |
@@ -103,14 +103,27 @@ message User {
 - `User` 结构体：与 proto message 字段一一对应
 - `GetFields()`：根据字段编号从 Redis Hash 中读取值，并填充到结构体；数值/枚举解析失败会返回错误（而不是静默保留零值）；Hash 中不存在的字段保持零值
 - `SetFields()`：将结构体字段值存储到 Redis Hash
-- Gob 支持：nested message / repeated / map 等类型自动进行 Gob 序列化
+- Gob 支持：嵌套 message 整体、message 集合元素使用 Gob 序列化
+- 集合字段元素级存储：map/repeated 按元素拆分，支持单元素 Set/Get/Del/Append（见"集合字段的元素级存储"）
 - 枚举支持：自动生成枚举类型（如 `Gender`）及其常量，命名与 protoc-gen-go 完全一致（顶层枚举用枚举名做前缀，嵌套枚举用所在 message 名做前缀）
 
 **覆盖的类型**
 
 - 标量：`int32/int64/uint32/uint64/float32/float64/bool/string/bytes` —— 直接存储
 - 枚举 —— 直接存储为整数，读取时自动转换
-- `repeated`、`map`、嵌套 message —— Gob 序列化为 `[]byte` 存储
+- 嵌套 message —— Gob 序列化为 `[]byte` 存储
+- `map` / `repeated` —— **元素级存储**（见下）
+
+**集合字段的元素级存储（方案 A）**
+
+`map` 与 `repeated` 字段不再整块 gob 序列化，而是按元素拆成独立的 hash field（`<字段编号>:<key|下标>`），只改一个元素就只写一条命令，避免整块序列化/反序列化与并发覆盖：
+
+- `map<K,V>`：`Set<Field>(conn, key, k, v)` / `Get<Field>(conn, key, k)` / `Del<Field>(conn, key, k)`，单键操作
+- `repeated`：`Set<Field>(conn, key, i, v)` / `Get<Field>(conn, key, i)` / `Del<Field>(conn, key, i)` / `Append<Field>(conn, key, v)`（返回新下标）
+- 整体读写：`Get<Field>All` / `Set<Field>All` / `Del<Field>All`——整体替换用 **Lua 脚本原子完成**（先清空旧元素再写入，repeated 重建下标 0..n-1 可修复删除空洞）
+- 元素值规则：标量/枚举/bytes 直接存储，message 元素单元素 gob 序列化
+- `GetFields`/`SetFields` 对集合字段自动走元素级存储整体读写，两种方式数据互通
+- 契约：集合字段无元素时回读为 nil；`Del<Field>(i)` 删除后不压缩下标，`Append` 从最大下标 + 1 继续
 
 ## 🧠 设计说明
 

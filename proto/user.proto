@@ -4,7 +4,6 @@ package user;
 
 option go_package = "github.com/beijian128/protoc-gen-redis/cmddb";
 
-
 // 性别枚举（示例：未知、男、女）
 enum Gender {
   GENDER_UNKNOWN = 0;  // 默认值
@@ -28,7 +27,26 @@ message UserBaseInfo {
   repeated Weapon weapons = 12;
   Weapon weapon = 13;
   map<int32,Weapon>  weaponMap= 14;
+  uint32 coin = 15;                 // 金币（uint32，无符号）
+  uint64 gem = 16;                  // 宝石（uint64，大数值）
+  bool vip = 17;                    // 是否 VIP（bool）
+  double score = 18;                // 综合评分（double，高精度浮点）
+  bytes token = 19;                 // 会话令牌（bytes）
+  Profile profile = 20;             // 个人资料（嵌套 message）
+  VipLevel vip_level = 21;          // VIP 等级（嵌套枚举）
 
+  // 个人资料（嵌套 message）
+  message Profile {
+    string nickname = 1;            // 昵称
+    int32 age = 2;                  // 年龄
+  }
+
+  // VIP 等级（嵌套枚举）
+  enum VipLevel {
+    VIP_NONE = 0;
+    VIP_1 = 1;
+    VIP_2 = 2;
+  }
 }
 
 // 登录来源枚举（示例：APP、H5、小程序）
@@ -38,9 +56,6 @@ enum LoginSource {
   SOURCE_H5 = 2;
   SOURCE_MINI_PROGRAM = 3;
 }
-
-
-
 
 // 武器信息
 message Weapon {

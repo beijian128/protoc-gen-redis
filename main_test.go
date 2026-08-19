@@ -83,6 +83,23 @@ func userBaseInfoDescriptor() *descriptorpb.DescriptorProto {
 			field("weapons", 12, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.Weapon"),
 			field("weapon", 13, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.Weapon"),
 			field("weaponMap", 14, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.UserBaseInfo.WeaponMapEntry"),
+			field("coin", 15, descriptorpb.FieldDescriptorProto_TYPE_UINT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			field("gem", 16, descriptorpb.FieldDescriptorProto_TYPE_UINT64, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			field("vip", 17, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			field("score", 18, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			field("token", 19, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			field("profile", 20, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.UserBaseInfo.Profile"),
+			field("vip_level", 21, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.UserBaseInfo.VipLevel"),
+		},
+		EnumType: []*descriptorpb.EnumDescriptorProto{
+			{
+				Name: proto.String("VipLevel"),
+				Value: []*descriptorpb.EnumValueDescriptorProto{
+					{Name: proto.String("VIP_NONE"), Number: proto.Int32(0)},
+					{Name: proto.String("VIP_1"), Number: proto.Int32(1)},
+					{Name: proto.String("VIP_2"), Number: proto.Int32(2)},
+				},
+			},
 		},
 		NestedType: []*descriptorpb.DescriptorProto{
 			{
@@ -99,6 +116,13 @@ func userBaseInfoDescriptor() *descriptorpb.DescriptorProto {
 				Field: []*descriptorpb.FieldDescriptorProto{
 					field("key", 1, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 					field("value", 2, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.Weapon"),
+				},
+			},
+			{
+				Name: proto.String("Profile"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					field("nickname", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					field("age", 2, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 				},
 			},
 		},
@@ -181,7 +205,7 @@ func userFileWithExtraRef() *descriptorpb.FileDescriptorProto {
 	f := proto.Clone(userFileDescriptor()).(*descriptorpb.FileDescriptorProto)
 	f.Dependency = []string{"extra.proto"}
 	f.MessageType[0].Field = append(f.MessageType[0].Field,
-		field("extra_ref", 15, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.ExtraMsg"))
+		field("extra_ref", 22, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.ExtraMsg"))
 	return f
 }
 
@@ -262,6 +286,27 @@ func TestGenerateUserProtoGolden(t *testing.T) {
 		"Settings map[string]string",
 		"Weapons []Weapon",
 		"WeaponMap map[int32]Weapon",
+		"Coin uint32",
+		"Gem uint64",
+		"Vip bool",
+		"Score float64",
+		"Token []byte",
+		"Profile UserBaseInfo_Profile",
+		"VipLevel UserBaseInfo_VipLevel",
+		"UserBaseInfo_VIP_1 UserBaseInfo_VipLevel", // 嵌套枚举常量（message 名前缀）
+		"type UserBaseInfo_Profile struct",         // 嵌套 message 生成代码
+		"Nickname string",
+		"FieldUserBaseInfo_Profile FieldUserBaseInfo = 20", // 父字段常量名保持不变
+		"type FieldUserBaseInfo_ProfileX uint32",           // 冲突的嵌套类型名加 X 消歧
+		"FieldUserBaseInfo_ProfileX_Nickname FieldUserBaseInfo_ProfileX = 1",
+		// 集合字段元素级方法（方案 A）
+		"func (p *UserBaseInfo) SetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string, v string) error",
+		"func (p *UserBaseInfo) GetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (string, bool, error)",
+		"func (p *UserBaseInfo) DelSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (bool, error)",
+		"func (p *UserBaseInfo) GetSettingsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error",
+		"func (p *UserBaseInfo) AppendFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, v string) (int, error)",
+		"func (p *UserBaseInfo) SetWeaponMap(conn redis.Conn, REDBKey uint32, ida, idb uint64, k int32, v Weapon) error",
+		`"EVAL", script, 1, key, 8`,
 		`fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)`,
 	} {
 		if !containsCode(content, want) {
