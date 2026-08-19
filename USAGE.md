@@ -16,7 +16,8 @@ protoc-gen-redis 是一个 protoc 插件：**用 .proto 定义数据模型，自
 |---|---|
 | Go 1.24+ | 构建插件、使用生成代码 |
 | protoc | 调用插件编译 .proto（`--plugin` 指定） |
-| Redis | 运行环境；测试时可选（连不上会自动跳过） |
+| Redis 2.8+（建议 4.0+） | 运行环境；测试时可选（连不上会自动跳过）。生成代码用到 HSET/HGET/HMGET/HDEL（2.0+）、EVAL（2.6+）、HSCAN（2.8+），全功能要求 2.8+；建议 4.0+ 与 Tendis 兼容基线一致 |
+| Tendis（可选） | 磁盘持久化场景替代 Redis：腾讯云存储版不支持 Lua（集合批量操作不可用），混合存储版与开源 Tendisplus 完整可用 |
 
 ## 2. 安装插件
 
@@ -124,7 +125,7 @@ if err := got.GetFields(conn, 1, 10001, 0, cmddb.FieldUser_UserId, cmddb.FieldUs
 fmt.Println(got.UserId, got.Friends) // 1001 [bob carol]
 ```
 
-字段常量：每个字段对应一个 `FieldUser_<字段名> = <proto tag>` 常量，`SetFields` / `GetFields` 按需读写时使用。Hash 中不存在的字段读取后保持零值。
+字段常量：每个字段对应一个 `FieldUser_<字段名> = <proto tag>` 常量，`SetFields` / `GetFields` 按需读写时使用。Hash 中不存在的字段读取后保持零值；数值/枚举字段解析失败会返回错误（而不是静默保留零值）。
 
 ### 5.2 集合字段的元素级操作（热点写法）
 
@@ -205,13 +206,16 @@ go test ./Test
 
 # 演示程序：真实读写 Redis（全字段 + 元素级操作）
 go run ./Test -config bin/config.json
+
+# 修改模板后刷新 golden 基准文件（单元测试基准对比用）
+UPDATE_GOLDEN=1 go test -run TestGenerateUserProtoGolden .
 ```
 
 ## 8. 注意事项
 
 - **输出到独立目录**：生成文件是自包含的（枚举、结构体、序列化方法都重新声明），与 protoc-gen-go 的 `.pb.go` 放同一包会重复定义
-- **老数据迁移**：序列化格式从旧版 gob 改为 protobuf wire format 后不兼容，升级需对存量数据一次性迁移
 - **跨文件引用**：字段引用其他 .proto 文件的 message 时，被引用的文件也需用本插件生成（生成代码会调用其 `MarshalRedisProto` / `UnmarshalRedisProto`）；`google.protobuf.Timestamp` 等 well-known 类型暂不支持
-- **集合字段契约**：无元素时整体读回为 nil；`Del<Field>(i)` 删除后不压缩下标，`Append` 从"最大下标 + 1"继续，需要紧凑序列用 `Set<Field>All` 重建
-- **Redis key**：默认 `REDB#<REDBKey>:<ida>:<idb>`，三个维度由业务自定义（插件只按 key_format 顺序填入），游戏开发中常见划分：系统 ID（如家园系统=1）、玩家 UID、二级区分 ID（赛季/角色，不需要填 0）；可用 `key_format` 定制。以家园系统为例：`REDB#1:123456:3` = 家园系统、玩家 UID 123456、赛季 3
+- **集合字段契约**：无元素时整体读回为 nil；`Del<Field>(i)` 删除后不压缩下标，`Append` 从"最大下标 + 1"继续，需要紧凑序列用 `Set<Field>All` 重建（整体替换是 Lua 原子操作）
 - 生成代码依赖 `github.com/gomodule/redigo/redis`，使用方项目需要引入
+- 若 proto 文件使用了自定义选项，目前暂未支持解析，但可扩展
+- Redis key 格式、集合字段元素级存储、Tendis 兼容性等设计细节见 [DESIGN.md](DESIGN.md)
