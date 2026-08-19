@@ -81,6 +81,7 @@ message User {
   int32 age = 2;
   Gender gender = 3;
   bytes avatar = 4;
+  repeated string friends = 5;   // 集合字段：元素级存储
 }
 ```
 
@@ -94,6 +95,42 @@ message User {
 - 方法：
   - `GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser) error`
   - `SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUser) error`
+  - 集合字段（map/repeated）的元素级方法：`SetFriends/GetFriends/DelFriends/AppendFriends` 等
+
+## 💻 使用示例
+
+```go
+import cmddb "your_project/redis" // 生成的 <proto>.redis.go 所在包
+
+conn, _ := redis.Dial("tcp", "127.0.0.1:6379")
+defer conn.Close()
+
+u := &cmddb.User{
+    Name:    "alice",
+    Age:     18,
+    Gender:  cmddb.Gender_GENDER_FEMALE,
+    Friends: []string{"bob", "carol"}, // 集合字段：按元素存储
+}
+
+// 整体写入（集合字段自动按元素拆分成 hash field）
+u.SetFields(conn, 1, 10001, 0)
+
+// 按需读取
+got := &cmddb.User{}
+got.GetFields(conn, 1, 10001, 0, cmddb.FieldUser_Name, cmddb.FieldUser_Friends)
+
+// 元素级操作：只读写一个元素，不触碰其他元素（生产环境的热点写法）
+got.SetFriends(conn, 1, 10001, 0, 2, "dave")      // 按下标写
+idx, _ := got.AppendFriends(conn, 1, 10001, 0, "erin") // 追加，返回新下标
+v, ok, _ := got.GetFriends(conn, 1, 10001, 0, idx)      // 按下标读
+got.DelFriends(conn, 1, 10001, 0, 2)                    // 按下标删
+
+// 集合整体读写（原子替换，可修复删除留下的下标空洞）
+got.SetFriendsAll(conn, 1, 10001, 0, []string{"x", "y"})
+got.GetFriendsAll(conn, 1, 10001, 0)
+```
+
+集合字段生成的方法按字段名命名：`friends` 对应 `SetFriends / GetFriends / DelFriends / AppendFriends / GetFriendsAll / SetFriendsAll / DelFriendsAll`；`map` 字段同样有单键的 `Set/Get/Del` 与整体的 `All` 版本。
 
 ## 🛠️ 生成的代码说明
 
@@ -183,14 +220,30 @@ protoc \
 5. 运行测试
 
 ```bash
-go test ./...   # 包含 golden 测试（对比 generated/user.redis.go）与类型映射回归测试
+# 单元测试：golden 对比（generated/user.redis.go）+ 类型映射回归，不依赖外部服务
+go test ./...
+
+# 集成测试：需要本机 Redis（默认 127.0.0.1:6379 无密码，
+# 可用 bin/config.json 覆盖地址/密码，参考 bin/config.example.json；
+# 连不上时集成测试自动跳过）
+go test ./Test
+
+# 演示程序：真实读写 Redis（全字段 + 元素级操作）
+go run ./Test -config bin/config.json
+
+# 修改模板后刷新 golden 基准文件
+UPDATE_GOLDEN=1 go test -run TestGenerateUserProtoGolden .
 ```
 
 ## ⚠️ 注意事项
 
-- 本生成器默认将 嵌套 message、repeated、map 等复杂类型使用 Gob 序列化存储为 `[]byte`
+- 嵌套 message 整体、message 集合元素使用 Gob 序列化存储为 `[]byte`；标量/枚举/bytes 直接存储
 - 枚举类型会被生成为 `type Gender int32` 以及一组常量，Get/Set 时会做类型转换（字符串 → int → 枚举）
 - **生成的 `.redis.go` 是自包含的**（枚举、结构体独立声明），与 protoc-gen-go 的 `.pb.go` 放到同一 Go 包会导致重复定义，请输出到独立目录
+- 集合字段（map/repeated）的元素级存储契约：
+  - 无元素时整体读回为 nil；`Del<Field>(i)` 删除后不压缩下标，`Append` 从最大下标 + 1 继续，需要紧凑序列用 `Set<Field>All` 重建
+  - 整体替换（`Set<Field>All` 与 `SetFields`）是 Lua 原子操作
+  - 元素级存储与旧版整块 gob 格式不兼容，老数据需一次性迁移
 - 生成的代码需要依赖 `github.com/gomodule/redigo/redis`，请确保你的项目引入该包
 - 若你的 proto 文件使用了自定义选项，目前暂未支持解析，但可扩展
 - 更新模板后可用 `UPDATE_GOLDEN=1 go test ./...` 刷新 `generated/user.redis.go` 基准文件
