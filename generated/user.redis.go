@@ -34,14 +34,14 @@ const (
 // FieldUserBaseInfo 用于标识 Redis Hash 中的字段编号
 type FieldUserBaseInfo uint32
 
-// FieldUserBaseInfo_User_id 是字段 User_id 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_User_id FieldUserBaseInfo = 1
+// FieldUserBaseInfo_UserId 是字段 UserId 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_UserId FieldUserBaseInfo = 1
 
 // FieldUserBaseInfo_Username 是字段 Username 对应的 Redis Hash field 编号
 const FieldUserBaseInfo_Username FieldUserBaseInfo = 2
 
-// FieldUserBaseInfo_Avatar_url 是字段 Avatar_url 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Avatar_url FieldUserBaseInfo = 3
+// FieldUserBaseInfo_AvatarUrl 是字段 AvatarUrl 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_AvatarUrl FieldUserBaseInfo = 3
 
 // FieldUserBaseInfo_Gender 是字段 Gender 对应的 Redis Hash field 编号
 const FieldUserBaseInfo_Gender FieldUserBaseInfo = 4
@@ -61,8 +61,8 @@ const FieldUserBaseInfo_Friends FieldUserBaseInfo = 8
 // FieldUserBaseInfo_Settings 是字段 Settings 对应的 Redis Hash field 编号
 const FieldUserBaseInfo_Settings FieldUserBaseInfo = 9
 
-// FieldUserBaseInfo_Login_source 是字段 Login_source 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Login_source FieldUserBaseInfo = 10
+// FieldUserBaseInfo_LoginSource 是字段 LoginSource 对应的 Redis Hash field 编号
+const FieldUserBaseInfo_LoginSource FieldUserBaseInfo = 10
 
 // FieldUserBaseInfo_Listint32 是字段 Listint32 对应的 Redis Hash field 编号
 const FieldUserBaseInfo_Listint32 FieldUserBaseInfo = 11
@@ -78,16 +78,16 @@ const FieldUserBaseInfo_WeaponMap FieldUserBaseInfo = 14
 
 // FieldUserBaseInfoIDs 是所有字段编号常量的集合，类型为 []FieldUserBaseInfo
 var FieldUserBaseInfoIDs = []FieldUserBaseInfo{
-	FieldUserBaseInfo_User_id,
+	FieldUserBaseInfo_UserId,
 	FieldUserBaseInfo_Username,
-	FieldUserBaseInfo_Avatar_url,
+	FieldUserBaseInfo_AvatarUrl,
 	FieldUserBaseInfo_Gender,
 	FieldUserBaseInfo_Level,
 	FieldUserBaseInfo_Exp,
 	FieldUserBaseInfo_Balance,
 	FieldUserBaseInfo_Friends,
 	FieldUserBaseInfo_Settings,
-	FieldUserBaseInfo_Login_source,
+	FieldUserBaseInfo_LoginSource,
 	FieldUserBaseInfo_Listint32,
 	FieldUserBaseInfo_Weapons,
 	FieldUserBaseInfo_Weapon,
@@ -96,11 +96,11 @@ var FieldUserBaseInfoIDs = []FieldUserBaseInfo{
 
 // UserBaseInfo 提供针对 UserBaseInfo 消息的 Redis 存取操作
 type UserBaseInfo struct {
-	User_id int32
+	UserId int32
 
 	Username string
 
-	Avatar_url string
+	AvatarUrl string
 
 	Gender Gender
 
@@ -114,7 +114,7 @@ type UserBaseInfo struct {
 
 	Settings map[string]string
 
-	Login_source LoginSource
+	LoginSource LoginSource
 
 	Listint32 []int32
 
@@ -169,14 +169,16 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUserBaseInfo_User_id:
+		case FieldUserBaseInfo_UserId:
 
-			// --- 直读字段: User_id ---
+			// --- 直读字段: UserId ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
-					p.User_id = int32(id)
+				id, err := strconv.ParseInt(string(val), 10, 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "UserId", err)
 				}
+				p.UserId = int32(id)
 
 			}
 
@@ -189,12 +191,12 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Avatar_url:
+		case FieldUserBaseInfo_AvatarUrl:
 
-			// --- 直读字段: Avatar_url ---
+			// --- 直读字段: AvatarUrl ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				p.Avatar_url = string(val)
+				p.AvatarUrl = string(val)
 
 			}
 
@@ -203,11 +205,11 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 			// --- 直读字段: Gender ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				var intValue int64
-				if intValue, err = strconv.ParseInt(string(val), 10, 64); err != nil {
+				intValue, err := strconv.ParseInt(string(val), 10, 64)
+				if err != nil {
 					return fmt.Errorf("解析枚举字段 %s 失败: %v", "Gender", err)
 				}
-				p.Gender = Gender(int32(intValue)) // 假设所有枚举都是 int32 底层
+				p.Gender = Gender(int32(intValue))
 
 			}
 
@@ -216,9 +218,11 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 			// --- 直读字段: Level ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
-					p.Level = int32(id)
+				id, err := strconv.ParseInt(string(val), 10, 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "Level", err)
 				}
+				p.Level = int32(id)
 
 			}
 
@@ -227,9 +231,11 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 			// --- 直读字段: Exp ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if id, err := strconv.ParseInt(string(val), 10, 64); err == nil {
-					p.Exp = id
+				id, err := strconv.ParseInt(string(val), 10, 64)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "Exp", err)
 				}
+				p.Exp = id
 
 			}
 
@@ -238,9 +244,11 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 			// --- 直读字段: Balance ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if f, err := strconv.ParseFloat(string(val), 32); err == nil {
-					p.Balance = float32(f)
+				f, err := strconv.ParseFloat(string(val), 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "Balance", err)
 				}
+				p.Balance = float32(f)
 
 			}
 
@@ -262,16 +270,16 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 				}
 			}
 
-		case FieldUserBaseInfo_Login_source:
+		case FieldUserBaseInfo_LoginSource:
 
-			// --- 直读字段: Login_source ---
+			// --- 直读字段: LoginSource ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				var intValue int64
-				if intValue, err = strconv.ParseInt(string(val), 10, 64); err != nil {
-					return fmt.Errorf("解析枚举字段 %s 失败: %v", "Login_source", err)
+				intValue, err := strconv.ParseInt(string(val), 10, 64)
+				if err != nil {
+					return fmt.Errorf("解析枚举字段 %s 失败: %v", "LoginSource", err)
 				}
-				p.Login_source = LoginSource(int32(intValue)) // 假设所有枚举都是 int32 底层
+				p.LoginSource = LoginSource(int32(intValue))
 
 			}
 
@@ -340,20 +348,20 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUserBaseInfo_User_id:
+		case FieldUserBaseInfo_UserId:
 
-			// --- 直存字段: User_id ---
-			args = append(args, fieldID, p.User_id)
+			// --- 直存字段: UserId ---
+			args = append(args, fieldID, p.UserId)
 
 		case FieldUserBaseInfo_Username:
 
 			// --- 直存字段: Username ---
 			args = append(args, fieldID, p.Username)
 
-		case FieldUserBaseInfo_Avatar_url:
+		case FieldUserBaseInfo_AvatarUrl:
 
-			// --- 直存字段: Avatar_url ---
-			args = append(args, fieldID, p.Avatar_url)
+			// --- 直存字段: AvatarUrl ---
+			args = append(args, fieldID, p.AvatarUrl)
 
 		case FieldUserBaseInfo_Gender:
 
@@ -397,10 +405,10 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 				args = append(args, fieldID, buf.Bytes())
 			}
 
-		case FieldUserBaseInfo_Login_source:
+		case FieldUserBaseInfo_LoginSource:
 
-			// --- 直存字段: Login_source ---
-			args = append(args, fieldID, p.Login_source)
+			// --- 直存字段: LoginSource ---
+			args = append(args, fieldID, p.LoginSource)
 
 		case FieldUserBaseInfo_Listint32:
 
@@ -543,9 +551,11 @@ func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 			// --- 直读字段: Damage ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
 
-				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
-					p.Damage = int32(id)
+				id, err := strconv.ParseInt(string(val), 10, 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "Damage", err)
 				}
+				p.Damage = int32(id)
 
 			}
 

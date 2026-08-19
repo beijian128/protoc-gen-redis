@@ -44,17 +44,17 @@ func main() {
 
 	{
 		u := cmddb.UserBaseInfo{
-			User_id:      133333333,
-			Username:     "3",
-			Avatar_url:   "sdw",
-			Gender:       cmddb.Gender_GENDER_FEMALE,
-			Level:        4,
-			Exp:          3,
-			Balance:      4,
-			Friends:      []string{"1", "2"},
-			Settings:     map[string]string{"key": "value"},
-			Login_source: cmddb.LoginSource_SOURCE_H5,
-			Listint32:    []int32{1, 2},
+			UserId:      133333333,
+			Username:    "3",
+			AvatarUrl:   "sdw",
+			Gender:      cmddb.Gender_GENDER_FEMALE,
+			Level:       4,
+			Exp:         3,
+			Balance:     4,
+			Friends:     []string{"1", "2"},
+			Settings:    map[string]string{"key": "value"},
+			LoginSource: cmddb.LoginSource_SOURCE_H5,
+			Listint32:   []int32{1, 2},
 			Weapons: []cmddb.Weapon{
 				{
 					Name:    "mmm1",
@@ -75,12 +75,12 @@ func main() {
 		}
 		u.SetFields(conn, uint32(2), 1, 0,
 			cmddb.FieldUserBaseInfo_WeaponMap, cmddb.FieldUserBaseInfo_Weapons,
-			cmddb.FieldUserBaseInfo_Weapon, cmddb.FieldUserBaseInfo_Gender, cmddb.FieldUserBaseInfo_User_id)
+			cmddb.FieldUserBaseInfo_Weapon, cmddb.FieldUserBaseInfo_Gender, cmddb.FieldUserBaseInfo_UserId)
 	}
 	{
 		u := cmddb.UserBaseInfo{}
 		u.GetFields(conn, 2, 1, 0, cmddb.FieldUserBaseInfo_WeaponMap, cmddb.FieldUserBaseInfo_Weapons,
-			cmddb.FieldUserBaseInfo_Weapon, cmddb.FieldUserBaseInfo_Gender, cmddb.FieldUserBaseInfo_User_id)
+			cmddb.FieldUserBaseInfo_Weapon, cmddb.FieldUserBaseInfo_Gender, cmddb.FieldUserBaseInfo_UserId)
 		fmt.Printf("%#v\n", u)
 	}
 }

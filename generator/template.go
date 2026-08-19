@@ -13,13 +13,13 @@ import (
 `
 
 const codeTemplateEnums = `
-{{range .Enums}}
-// Enum {{.Name}}
-type {{.Name}} int32
+{{range $e := .Enums}}
+// Enum {{$e.Name}}
+type {{$e.Name}} int32
 
 const (
-	{{- range .Values}}
-	{{.EnumName}}_{{.Name}} {{.EnumName}} = {{.Value}}
+	{{- range $v := $e.Values}}
+	{{$v.Name}} {{$e.Name}} = {{$v.Value}}
 	{{- end}}
 )
 {{end}}
@@ -58,7 +58,7 @@ func New{{.MessageName}}() *{{.MessageName}} {
 // fields: 要读取的字段编号列表，如 Field{{.MessageName}}_Name, Field{{.MessageName}}_Age
 //          如果 fields 为空（长度为 0），则默认读取所有字段（即 Field{{.MessageName}}IDs）
 func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...Field{{.MessageName}}) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	key := fmt.Sprintf({{printf "%q" .KeyFormat}}, REDBKey, ida, idb)
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
@@ -100,38 +100,50 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 			{{else}}
 			// --- 直读字段: {{.Name}} ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
-                {{if in .GoType $.Enums}}
-				var intValue int64
-				if intValue, err = strconv.ParseInt(string(val), 10, 64); err != nil {
+				{{if .IsEnum}}
+				intValue, err := strconv.ParseInt(string(val), 10, 64)
+				if err != nil {
 					return fmt.Errorf("解析枚举字段 %s 失败: %v", "{{.Name}}", err)
 				}
-				p.{{.Name}} = {{.GoType}}(int32(intValue)) // 假设所有枚举都是 int32 底层
+				p.{{.Name}} = {{.GoType}}(int32(intValue))
 				{{else if eq .GoType "string"}}
 				p.{{.Name}} = string(val)
 				{{else if eq .GoType "uint64"}}
-				if id, err := strconv.ParseUint(string(val), 10, 64); err == nil {
-					p.{{.Name}} = id
+				id, err := strconv.ParseUint(string(val), 10, 64)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "{{.Name}}", err)
 				}
+				p.{{.Name}} = id
 				{{else if eq .GoType "int64"}}
-				if id, err := strconv.ParseInt(string(val), 10, 64); err == nil {
-					p.{{.Name}} = id
+				id, err := strconv.ParseInt(string(val), 10, 64)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "{{.Name}}", err)
 				}
+				p.{{.Name}} = id
 				{{else if eq .GoType "uint32"}}
-				if id, err := strconv.ParseUint(string(val), 10, 32); err == nil {
-					p.{{.Name}} = uint32(id)
+				id, err := strconv.ParseUint(string(val), 10, 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "{{.Name}}", err)
 				}
+				p.{{.Name}} = uint32(id)
 				{{else if eq .GoType "int32"}}
-				if id, err := strconv.ParseInt(string(val), 10, 32); err == nil {
-					p.{{.Name}} = int32(id)
+				id, err := strconv.ParseInt(string(val), 10, 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "{{.Name}}", err)
 				}
+				p.{{.Name}} = int32(id)
 				{{else if eq .GoType "float64"}}
-				if f, err := strconv.ParseFloat(string(val), 64); err == nil {
-					p.{{.Name}} = f
+				f, err := strconv.ParseFloat(string(val), 64)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "{{.Name}}", err)
 				}
+				p.{{.Name}} = f
 				{{else if eq .GoType "float32"}}
-				if f, err := strconv.ParseFloat(string(val), 32); err == nil {
-					p.{{.Name}} = float32(f)
+				f, err := strconv.ParseFloat(string(val), 32)
+				if err != nil {
+					return fmt.Errorf("解析字段 %s 失败: %v", "{{.Name}}", err)
 				}
+				p.{{.Name}} = float32(f)
 				{{else if eq .GoType "bool"}}
 				if len(val) > 0 && val[0] == '1' {
 					p.{{.Name}} = true
@@ -141,7 +153,7 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 				{{else if eq .GoType "[]byte"}}
 				p.{{.Name}} = val
 				{{else}}
-				// 默认尝试字符串
+				// 兜底：尝试字符串
 				p.{{.Name}} = string(val)
 				{{end}}
 			}
@@ -163,7 +175,7 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 // fields: 要存储的字段编号列表，如 Field{{.MessageName}}_Name, Field{{.MessageName}}_Age
 //          如果 fields 为空（长度为 0），则默认存储所有字段（即 Field{{.MessageName}}IDs）
 func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...Field{{.MessageName}}) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	key := fmt.Sprintf({{printf "%q" .KeyFormat}}, REDBKey, ida, idb)
 	args := []interface{}{key}
 
 	// 决定要操作的字段列表
