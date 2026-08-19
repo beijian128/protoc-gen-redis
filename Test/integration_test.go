@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -224,7 +225,7 @@ func TestInvalidValueReturnsError(t *testing.T) {
 	if _, err := conn.Do("HSET", key, cmddb.FieldUserBaseInfo_Gender, "abc"); err != nil {
 		t.Fatalf("HSET 脏数据: %v", err)
 	}
-	// 集合字段按元素级存储；gob 元素字段（message 元素）名形如 "<tag>:<index>"
+	// 集合字段按元素级存储；message 元素字段（protobuf 序列化）名形如 "<tag>:<index>"
 	if _, err := conn.Do("HSET", key, fmt.Sprintf("%d:0", cmddb.FieldUserBaseInfo_Weapons), []byte{0xDE, 0xAD}); err != nil {
 		t.Fatalf("HSET 脏数据: %v", err)
 	}
@@ -237,7 +238,7 @@ func TestInvalidValueReturnsError(t *testing.T) {
 		t.Error("枚举字段脏数据应返回错误")
 	}
 	if err := u.GetFields(conn, testREDBKey, 8, 0, cmddb.FieldUserBaseInfo_Weapons); err == nil {
-		t.Error("gob 元素字段脏数据应返回错误")
+		t.Error("protobuf 元素字段脏数据应返回错误")
 	}
 }
 
@@ -433,7 +434,7 @@ func TestCollectionReplaceAll(t *testing.T) {
 	}
 }
 
-// TestMessageElementOps message 元素的单元素 gob 序列化往返。
+// TestMessageElementOps message 元素的单元素 protobuf 序列化往返。
 func TestMessageElementOps(t *testing.T) {
 	conn := dialRedis(t)
 	t.Cleanup(func() { conn.Do("DEL", fmt.Sprintf("REDB#%d:14:0", testREDBKey)) })
@@ -486,5 +487,147 @@ func TestElementAndBulkCoexist(t *testing.T) {
 	}
 	if v, ok, err := u2.GetFriends(conn, testREDBKey, 15, 0, 1); err != nil || !ok || v != "f2" {
 		t.Errorf("GetFriends(1) = %q, %v, %v; want f2, true, nil", v, ok, err)
+	}
+}
+
+// ---------- protobuf wire format 一致性测试（不依赖 Redis） ----------
+//
+// 期望字节全部按 protobuf 编码规范手算（https://protobuf.dev/programming-guides/encoding/），
+// 用于证明生成代码输出的是真正的 protobuf wire format，可被任何语言的实现解析。
+
+// TestMarshalRedisProtoConformance 用规范手算的字节验证 MarshalRedisProto 输出：
+// varint（int32/enum/uint64/bool）、fixed32（float）、fixed64（double）、
+// length-delimited（string/bytes/message）、map 条目、repeated、零值跳过、负 int32 符号扩展。
+func TestMarshalRedisProtoConformance(t *testing.T) {
+	// Weapon{name:"fire", damage:1, element:"e"}
+	// 0A 04 66 69 72 65 | 10 01 | 1A 01 65
+	w := cmddb.Weapon{Name: "fire", Damage: 1, Element: "e"}
+	got, err := w.MarshalRedisProto()
+	if err != nil {
+		t.Fatalf("Weapon.MarshalRedisProto: %v", err)
+	}
+	want := []byte{0x0A, 0x04, 'f', 'i', 'r', 'e', 0x10, 0x01, 0x1A, 0x01, 'e'}
+	if !bytes.Equal(got, want) {
+		t.Errorf("Weapon 编码 = % X, want % X", got, want)
+	}
+
+	// 零值 message 应编码为空字节流（proto3 跳过零值标量/空字符串）
+	empty, err := (&cmddb.Weapon{}).MarshalRedisProto()
+	if err != nil {
+		t.Fatalf("空 Weapon.MarshalRedisProto: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Errorf("零值 Weapon 编码 = % X, want 空", empty)
+	}
+
+	u := &cmddb.UserBaseInfo{
+		UserId:   7,                       // tag 1  varint
+		Username: "ab",                    // tag 2  string
+		Gender:   cmddb.Gender_GENDER_MALE, // tag 4  枚举 varint
+		Balance:  3.5,                     // tag 7  float -> fixed32
+		Friends:  []string{"x"},           // tag 8  repeated string
+		Settings: map[string]string{"k": "v"}, // tag 9  map 条目
+		Weapon:   cmddb.Weapon{Name: "w", Damage: 2}, // tag 13 message（element 空串不编码）
+		Coin:     1,                       // tag 15 uint32
+		Vip:      true,                    // tag 17 bool
+		Token:    []byte{0xFF},            // tag 19 bytes
+		// Profile 为零值但 message 字段恒编码 -> 空子消息
+	}
+	got, err = u.MarshalRedisProto()
+	if err != nil {
+		t.Fatalf("UserBaseInfo.MarshalRedisProto: %v", err)
+	}
+	want = []byte{
+		0x08, 0x07,                      // UserId = 7
+		0x12, 0x02, 'a', 'b',            // Username = "ab"
+		0x20, 0x01,                      // Gender = GENDER_MALE
+		0x3D, 0x00, 0x00, 0x60, 0x40,    // Balance = 3.5f（小端 fixed32）
+		0x42, 0x01, 'x',                 // Friends = ["x"]
+		0x4A, 0x06, 0x0A, 0x01, 'k', 0x12, 0x01, 'v', // Settings 条目 {1:"k", 2:"v"}
+		0x6A, 0x05, 0x0A, 0x01, 'w', 0x10, 0x02, // Weapon{name:"w", damage:2}
+		0x78, 0x01,                      // Coin = 1
+		0x88, 0x01, 0x01,                // Vip = true
+		0x9A, 0x01, 0x01, 0xFF,          // Token = [0xFF]
+		0xA2, 0x01, 0x00,                // Profile = 空消息（恒编码）
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("UserBaseInfo 编码 = % X\nwant           = % X", got, want)
+	}
+
+	// 负 int32/int64 必须符号扩展为 10 字节 varint（与 protoc 一致）
+	neg := &cmddb.UserBaseInfo{UserId: -1, Exp: -2}
+	got, err = neg.MarshalRedisProto()
+	if err != nil {
+		t.Fatalf("负值 MarshalRedisProto: %v", err)
+	}
+	want = []byte{
+		0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, // int32(-1)
+		0x30, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, // int64(-2)
+		0x6A, 0x00,                      // Weapon = 空消息（message 字段恒编码）
+		0xA2, 0x01, 0x00,                // Profile = 空消息（message 字段恒编码）
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("负值编码 = % X, want % X", got, want)
+	}
+}
+
+// TestUnmarshalRedisProtoConformance 用规范手算的字节验证 UnmarshalRedisProto：
+// 未知字段（varint/fixed32/fixed64/length-delimited）跳过、packed repeated 解码、
+// 负值回读、wire type 校验、截断数据报错。
+func TestUnmarshalRedisProtoConformance(t *testing.T) {
+	b := []byte{
+		0x82, 0x06, 0x02, 'a', 'b',       // 未知字段 96（wire 2）-> 跳过
+		0x89, 0x06, 0x01, 0, 0, 0, 0, 0, 0, 0, // 未知字段 97（wire 1 fixed64）-> 跳过
+		0x95, 0x06, 0xDE, 0xAD, 0xBE, 0xEF, // 未知字段 98（wire 5 fixed32）-> 跳过
+		0x98, 0x06, 0x05,                // 未知字段 99（wire 0 varint）-> 跳过
+		0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, // UserId = -1
+		0x30, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, // Exp = -2
+		0x5A, 0x03, 0x01, 0x02, 0x03,    // Listint32 packed [1,2,3]（其他语言默认打包）
+		0x42, 0x02, 'x', 'y',            // Friends 追加 "xy"
+	}
+	u := &cmddb.UserBaseInfo{Friends: []string{"stale"}} // 反序列化前会被重置
+	if err := u.UnmarshalRedisProto(b); err != nil {
+		t.Fatalf("UnmarshalRedisProto: %v", err)
+	}
+	if u.UserId != -1 || u.Exp != -2 {
+		t.Errorf("负值回读 = %d, %d, want -1, -2", u.UserId, u.Exp)
+	}
+	if want := []int32{1, 2, 3}; !reflect.DeepEqual(u.Listint32, want) {
+		t.Errorf("Listint32 = %v, want %v", u.Listint32, want)
+	}
+	if want := []string{"xy"}; !reflect.DeepEqual(u.Friends, want) {
+		t.Errorf("Friends = %v, want %v", u.Friends, want)
+	}
+	if u.Username != "" {
+		t.Errorf("重置失败: Username = %q, want 空", u.Username)
+	}
+
+	// wire type 不匹配应报错
+	if err := (&cmddb.UserBaseInfo{}).UnmarshalRedisProto([]byte{0x0A, 0x01, 0x00}); err == nil {
+		t.Error("字段 1 用 wire 2 编码应报错（期望 varint）")
+	}
+	// 截断的 varint 应报错
+	if err := (&cmddb.UserBaseInfo{}).UnmarshalRedisProto([]byte{0x08, 0x80}); err == nil {
+		t.Error("截断的 varint 应报错")
+	}
+	// 截断的 length-delimited 应报错
+	if err := (&cmddb.UserBaseInfo{}).UnmarshalRedisProto([]byte{0x12, 0x05, 'a'}); err == nil {
+		t.Error("截断的 length-delimited 应报错")
+	}
+}
+
+// TestMarshalRedisProtoRoundTrip 全字段数据的 编码 -> 解码 往返一致性。
+func TestMarshalRedisProtoRoundTrip(t *testing.T) {
+	want := newTestUser()
+	got, err := want.MarshalRedisProto()
+	if err != nil {
+		t.Fatalf("MarshalRedisProto: %v", err)
+	}
+	u := &cmddb.UserBaseInfo{}
+	if err := u.UnmarshalRedisProto(got); err != nil {
+		t.Fatalf("UnmarshalRedisProto: %v", err)
+	}
+	if !reflect.DeepEqual(u, want) {
+		t.Errorf("protobuf 往返不一致:\n got = %#v\nwant = %#v", u, want)
 	}
 }

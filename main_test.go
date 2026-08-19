@@ -299,6 +299,16 @@ func TestGenerateUserProtoGolden(t *testing.T) {
 		"FieldUserBaseInfo_Profile FieldUserBaseInfo = 20", // 父字段常量名保持不变
 		"type FieldUserBaseInfo_ProfileX uint32",           // 冲突的嵌套类型名加 X 消歧
 		"FieldUserBaseInfo_ProfileX_Nickname FieldUserBaseInfo_ProfileX = 1",
+		// protobuf wire format 序列化（语言无关）
+		"func (p *UserBaseInfo) MarshalRedisProto() ([]byte, error)",
+		"func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error",
+		"func (p *UserBaseInfo_Profile) MarshalRedisProto() ([]byte, error)",
+		"func (p *Weapon) UnmarshalRedisProto(b []byte) error",
+		"redisProtoAppendTag(buf, 7, 5)",            // float32 -> fixed32
+		"redisProtoAppendTag(buf, 18, 1)",           // float64 -> fixed64
+		"redisProtoAppendVarint(buf, uint64(p.Gem))", // uint64 varint
+		`redisProtoAppendLen(entry, []byte(k))`,     // map 键 -> length-delimited
+		"p.WeaponMap[k] = val",
 		// 集合字段元素级方法（方案 A）
 		"func (p *UserBaseInfo) SetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string, v string) error",
 		"func (p *UserBaseInfo) GetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (string, bool, error)",

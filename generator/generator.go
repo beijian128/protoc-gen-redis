@@ -90,9 +90,9 @@ func GenerateRedisCode(gen *protogen.Plugin, file *protogen.File, msg *protogen.
 			Kind:         ft.kind,
 			KeyType:      ft.keyType,
 			ElemType:     ft.elemType,
-			ElemIsGob:    ft.elemIsGob,
+			ElemIsMsg:    ft.elemIsMsg,
 			ElemIsEnum:   ft.elemIsEnum,
-			IsGob:        ft.wholeGob,
+			IsMsg:        ft.wholeMsg,
 			IsEnum:       ft.isEnum,
 			MethodPrefix: field.GoName,
 		})
@@ -197,13 +197,14 @@ func resolveFieldTypeNames(messages []*protogen.Message) map[*protogen.Message]s
 	return names
 }
 
-// GenerateRedisCodeHeadWithEnums 生成文件头（package、imports）以及本文件内声明的全部枚举。
+// GenerateRedisCodeHeadWithEnums 生成文件头（package、imports、protobuf wire 辅助函数）
+// 以及本文件内声明的全部枚举。
 // 枚举只取当前 proto 文件声明的（含嵌套在 message 里的），
 // 引用其他文件的枚举时不会重复声明，而是带包前缀直接引用（见 typeForField）。
 func GenerateRedisCodeHeadWithEnums(file *protogen.File) ([]byte, error) {
 	enums := collectFileEnums(file)
 
-	needGob, needStrconv, needSort := scanImports(file)
+	needProto, needMath, needStrconv, needSort := scanImports(file)
 	imports := []string{
 		"fmt",
 		"github.com/gomodule/redigo/redis",
@@ -211,8 +212,8 @@ func GenerateRedisCodeHeadWithEnums(file *protogen.File) ([]byte, error) {
 	if needStrconv {
 		imports = append(imports, "strconv")
 	}
-	if needGob {
-		imports = append(imports, "bytes", "encoding/gob")
+	if needMath {
+		imports = append(imports, "math")
 	}
 	if needSort {
 		imports = append(imports, "sort")
@@ -246,10 +247,20 @@ func GenerateRedisCodeHeadWithEnums(file *protogen.File) ([]byte, error) {
 		return nil, err
 	}
 
-	return bytes.Join([][]byte{
-		bufHead.Bytes(),
-		bufEnums.Bytes(),
-	}, []byte("\n")), nil
+	parts := [][]byte{bufHead.Bytes(), bufEnums.Bytes()}
+	if needProto {
+		tmplHelpers, err := template.New("redis_proto_helpers").Parse(codeTemplateProtoHelpers)
+		if err != nil {
+			return nil, err
+		}
+		var bufHelpers bytes.Buffer
+		if err := tmplHelpers.Execute(&bufHelpers, nil); err != nil {
+			return nil, err
+		}
+		parts = append(parts, bufHelpers.Bytes())
+	}
+
+	return bytes.Join(parts, []byte("\n")), nil
 }
 
 // CollectMessages 返回文件中所有需要生成代码的 message（顶层 + 嵌套，按声明顺序），
@@ -278,9 +289,9 @@ type fieldType struct {
 	kind       FieldKind
 	keyType    string // map 键类型
 	elemType   string // 集合元素类型
-	elemIsGob  bool   // 元素为 message，单元素 gob 序列化
+	elemIsMsg  bool   // 元素为 message，单元素 protobuf wire format 序列化
 	elemIsEnum bool   // 元素为枚举
-	wholeGob   bool   // plain 字段整块 gob
+	wholeMsg   bool   // plain 字段整块 protobuf wire format 序列化
 	isEnum     bool   // plain 字段为枚举
 }
 
@@ -288,27 +299,27 @@ type fieldType struct {
 // message/enum 类型一律经 protogen 解析：同包直接用名字，
 // 跨包自动带包前缀并登记 import（由 protogen 在生成文件时统一插入）。
 // 集合字段（map/repeated）按元素级存储设计：元素类型单独解析，
-// 标量/枚举/bytes 元素直接存储，message 元素单元素 gob 序列化。
+// 标量/枚举/bytes 元素直接存储，message 元素单元素 protobuf 序列化。
 func fieldTypeFor(gen *protogen.Plugin, g *protogen.GeneratedFile, f *protogen.Field) fieldType {
 	if f.Desc.Cardinality() == protoreflect.Repeated {
 		if f.Desc.IsMap() {
 			keyType := mapKeyType(f.Desc.MapKey().Kind())
-			elemType, elemIsGob, elemIsEnum := elemTypeFor(gen, g, f.Desc.MapValue())
+			elemType, elemIsMsg, elemIsEnum := elemTypeFor(gen, g, f.Desc.MapValue())
 			return fieldType{
 				goType:     fmt.Sprintf("map[%s]%s", keyType, elemType),
 				kind:       FieldMap,
 				keyType:    keyType,
 				elemType:   elemType,
-				elemIsGob:  elemIsGob,
+				elemIsMsg:  elemIsMsg,
 				elemIsEnum: elemIsEnum,
 			}
 		}
-		elemType, elemIsGob, elemIsEnum := elemTypeFor(gen, g, f.Desc)
+		elemType, elemIsMsg, elemIsEnum := elemTypeFor(gen, g, f.Desc)
 		return fieldType{
 			goType:     "[]" + elemType,
 			kind:       FieldSlice,
 			elemType:   elemType,
-			elemIsGob:  elemIsGob,
+			elemIsMsg:  elemIsMsg,
 			elemIsEnum: elemIsEnum,
 		}
 	}
@@ -318,7 +329,7 @@ func fieldTypeFor(gen *protogen.Plugin, g *protogen.GeneratedFile, f *protogen.F
 		return fieldType{
 			goType:   g.QualifiedGoIdent(f.Message.GoIdent),
 			kind:     FieldPlain,
-			wholeGob: true,
+			wholeMsg: true,
 		}
 	case protoreflect.EnumKind:
 		return fieldType{
@@ -333,8 +344,8 @@ func fieldTypeFor(gen *protogen.Plugin, g *protogen.GeneratedFile, f *protogen.F
 	}
 }
 
-// elemTypeFor 解析集合元素类型：标量/枚举/bytes 直接存储，message 单元素 gob。
-func elemTypeFor(gen *protogen.Plugin, g *protogen.GeneratedFile, desc protoreflect.FieldDescriptor) (elemType string, isGob, isEnum bool) {
+// elemTypeFor 解析集合元素类型：标量/枚举/bytes 直接存储，message 单元素 protobuf 序列化。
+func elemTypeFor(gen *protogen.Plugin, g *protogen.GeneratedFile, desc protoreflect.FieldDescriptor) (elemType string, isMsg, isEnum bool) {
 	switch desc.Kind() {
 	case protoreflect.MessageKind:
 		return g.QualifiedGoIdent(goIdentOf(gen, desc.Message())), true, false
@@ -406,10 +417,12 @@ func mapKeyType(k protoreflect.Kind) string {
 }
 
 // scanImports 扫描文件中全部字段（含嵌套 message，跳过 map entry），
-// 判断生成代码是否需要 strconv / gob + bytes / sort 这三个 import。
-// 集合字段按元素级存储判断：repeated 下标解析需要 strconv、排序需要 sort；
-// map 非 string 键的解析需要 strconv；message 元素需要 gob。
-func scanImports(file *protogen.File) (needGob, needStrconv, needSort bool) {
+// 判断生成代码需要哪些 stdlib import。
+// needProto：存在 message 类型字段（plain / map 值 / repeated 元素），
+// 需要生成 protobuf wire 辅助函数与每个 message 的 Marshal/Unmarshal 方法；
+// needMath：存在 float 字段且文件需要生成 marshaler（编码需要 math.Float32bits/Float64bits）；
+// strconv：集合下标、非 string map 键、数值/枚举直存字段的解析；sort：repeated 整体读回按下标排序。
+func scanImports(file *protogen.File) (needProto, needMath, needStrconv, needSort bool) {
 	walkMessages(file.Messages, func(m *protogen.Message) {
 		if m.Desc.IsMapEntry() {
 			return
@@ -417,10 +430,14 @@ func scanImports(file *protogen.File) (needGob, needStrconv, needSort bool) {
 		for _, field := range m.Fields {
 			if field.Desc.Cardinality() == protoreflect.Repeated {
 				if field.Desc.IsMap() {
-					needGob = needGob || field.Desc.MapValue().Kind() == protoreflect.MessageKind
+					needProto = needProto || field.Desc.MapValue().Kind() == protoreflect.MessageKind
+					needMath = needMath || field.Desc.MapValue().Kind() == protoreflect.FloatKind ||
+						field.Desc.MapValue().Kind() == protoreflect.DoubleKind
 					needStrconv = needStrconv || field.Desc.MapKey().Kind() != protoreflect.StringKind
 				} else {
-					needGob = needGob || field.Desc.Kind() == protoreflect.MessageKind
+					needProto = needProto || field.Desc.Kind() == protoreflect.MessageKind
+					needMath = needMath || field.Desc.Kind() == protoreflect.FloatKind ||
+						field.Desc.Kind() == protoreflect.DoubleKind
 					needStrconv = true
 					needSort = true
 				}
@@ -428,14 +445,17 @@ func scanImports(file *protogen.File) (needGob, needStrconv, needSort bool) {
 			}
 			switch field.Desc.Kind() {
 			case protoreflect.MessageKind:
-				needGob = true
+				needProto = true
 			case protoreflect.Uint32Kind, protoreflect.Uint64Kind, protoreflect.Int32Kind, protoreflect.Int64Kind,
 				protoreflect.FloatKind, protoreflect.DoubleKind, protoreflect.EnumKind:
 				needStrconv = true
+				needMath = needMath || field.Desc.Kind() == protoreflect.FloatKind ||
+					field.Desc.Kind() == protoreflect.DoubleKind
 			}
 		}
 	})
-	return needGob, needStrconv, needSort
+	// 没有 message 字段就不会生成 marshaler，math 只随 marshaler 一起引入
+	return needProto, needProto && needMath, needStrconv, needSort
 }
 
 // collectFileEnums 收集本文件声明的全部枚举（含嵌套在 message 里的），按名字排序。

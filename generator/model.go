@@ -19,13 +19,13 @@ type FieldInfo struct {
 	GoType   string // Go 类型，如 "uint64", "string", "Gender", "map[string]string"
 	Kind     FieldKind
 
-	IsGob  bool // plain 字段：复杂类型（嵌套 message）整块 gob 序列化
+	IsMsg  bool // plain 字段：嵌套 message，整块 protobuf wire format 序列化
 	IsEnum bool // plain 字段：是否为枚举（GetFields 需按整数解析并转换）
 
 	// 集合字段（map/slice）的元素信息
 	KeyType    string // map 键类型
 	ElemType   string // 集合元素类型
-	ElemIsGob  bool   // 元素为 message，单元素 gob 序列化
+	ElemIsMsg  bool   // 元素为 message，单元素 protobuf wire format 序列化
 	ElemIsEnum bool   // 元素为枚举
 
 	// MethodPrefix 元素级方法名的前缀（默认等于 Name，命名冲突时带 X 后缀），
@@ -39,7 +39,7 @@ type MessageInfo struct {
 	MessageName string
 	FieldType   string // 字段编号类型名（默认 Field<MessageName>，命名冲突时带 X 后缀）
 	Fields      []FieldInfo
-	Imports     []string // 动态生成的 import 列表，如 []string{"bytes", "encoding/gob", ...}
+	Imports     []string // 动态生成的 import 列表，如 []string{"math", "sort", ...}
 	KeyFormat   string   // 生成 Redis key 用的 fmt.Sprintf 格式，如 "REDB#%d:%d:%d"
 
 	// 集合字段元素级操作使用的 Lua 脚本（函数内局部常量，通过模板 %q 输出）
