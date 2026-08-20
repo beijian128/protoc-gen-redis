@@ -26,7 +26,7 @@ const (
 `
 
 // codeTemplateProtoHelpers 是 protobuf wire format 的辅助函数，
-// 文件内存在 message 类型字段时随文件头输出一次（redisProto 前缀避免与用户代码冲突）。
+// 文件内存在 message 或集合字段时随文件头输出一次（redisProto 前缀避免与用户代码冲突）。
 // 编码规则与 protobuf 规范一致：tag = field<<3 | wireType，
 // wireType：0=varint，1=fixed64，2=length-delimited，5=fixed32。
 const codeTemplateProtoHelpers = `
@@ -135,8 +135,11 @@ func redisProtoSkip(b []byte, wire uint64) (int, error) {
 
 `
 
+// codeTemplate 按 message 生成 Redis 存取代码。
+// 字段的 protobuf 编码/解码逻辑抽成 fieldEncode / fieldDecode 两个模板块，
+// 整体序列化（MarshalRedisProto / UnmarshalRedisProto）与集合字段（map/repeated）
+// 的字段级序列化方法（MarshalRedisProto<Field> / UnmarshalRedisProto<Field>）共用同一份逻辑。
 const codeTemplate = `
-{{define "zero"}}{{if .ElemIsMsg}}{{.ElemType}}{}{{else if eq .ElemType "string"}}""{{else if eq .ElemType "[]byte"}}nil{{else if eq .ElemType "bool"}}false{{else}}0{{end}}{{end}}
 // {{.FieldType}} 用于标识 Redis Hash 中的字段编号
 type {{.FieldType}} uint32
 
@@ -169,131 +172,7 @@ func New{{.MessageName}}() *{{.MessageName}} {
 // repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
 func (p *{{.MessageName}}) MarshalRedisProto() ([]byte, error) {
 	var buf []byte
-	{{range .Fields}}
-	// 字段 {{.Name}}（tag {{.ProtoTag}}）
-	{{if eq .Kind "plain"}}
-	{{if .IsMsg}}
-	{
-		b, err := p.{{.Name}}.MarshalRedisProto()
-		if err != nil {
-			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "{{.Name}}", err)
-		}
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
-		buf = redisProtoAppendLen(buf, b)
-	}
-	{{else if eq .GoType "string"}}
-	if p.{{.Name}} != "" {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
-		buf = redisProtoAppendLen(buf, []byte(p.{{.Name}}))
-	}
-	{{else if eq .GoType "[]byte"}}
-	if len(p.{{.Name}}) > 0 {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
-		buf = redisProtoAppendLen(buf, p.{{.Name}})
-	}
-	{{else if eq .GoType "float32"}}
-	if p.{{.Name}} != 0 {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 5)
-		buf = redisProtoAppendFixed32(buf, math.Float32bits(p.{{.Name}}))
-	}
-	{{else if eq .GoType "float64"}}
-	if p.{{.Name}} != 0 {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 1)
-		buf = redisProtoAppendFixed64(buf, math.Float64bits(p.{{.Name}}))
-	}
-	{{else if eq .GoType "bool"}}
-	if p.{{.Name}} {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 0)
-		buf = redisProtoAppendVarint(buf, 1)
-	}
-	{{else}}
-	// 枚举与整型（varint）
-	if p.{{.Name}} != 0 {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 0)
-		buf = redisProtoAppendVarint(buf, uint64(p.{{.Name}}))
-	}
-	{{end}}
-	{{else if eq .Kind "slice"}}
-	{{if .ElemIsMsg}}
-	for _, v := range p.{{.Name}} {
-		b, err := v.MarshalRedisProto()
-		if err != nil {
-			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "{{.Name}}", err)
-		}
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
-		buf = redisProtoAppendLen(buf, b)
-	}
-	{{else if eq .ElemType "string"}}
-	for _, v := range p.{{.Name}} {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
-		buf = redisProtoAppendLen(buf, []byte(v))
-	}
-	{{else if eq .ElemType "[]byte"}}
-	for _, v := range p.{{.Name}} {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
-		buf = redisProtoAppendLen(buf, v)
-	}
-	{{else if eq .ElemType "float32"}}
-	for _, v := range p.{{.Name}} {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 5)
-		buf = redisProtoAppendFixed32(buf, math.Float32bits(v))
-	}
-	{{else if eq .ElemType "float64"}}
-	for _, v := range p.{{.Name}} {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 1)
-		buf = redisProtoAppendFixed64(buf, math.Float64bits(v))
-	}
-	{{else}}
-	// 枚举与整型元素（varint）
-	for _, v := range p.{{.Name}} {
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 0)
-		buf = redisProtoAppendVarint(buf, uint64(v))
-	}
-	{{end}}
-	{{else if eq .Kind "map"}}
-	for k, v := range p.{{.Name}} {
-		var entry []byte
-		{{if eq .KeyType "string"}}
-		entry = redisProtoAppendTag(entry, 1, 2)
-		entry = redisProtoAppendLen(entry, []byte(k))
-		{{else if eq .KeyType "bool"}}
-		entry = redisProtoAppendTag(entry, 1, 0)
-		if k {
-			entry = redisProtoAppendVarint(entry, 1)
-		}
-		{{else}}
-		entry = redisProtoAppendTag(entry, 1, 0)
-		entry = redisProtoAppendVarint(entry, uint64(k))
-		{{end}}
-		{{if .ElemIsMsg}}
-		b, err := v.MarshalRedisProto()
-		if err != nil {
-			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "{{.Name}}", err)
-		}
-		entry = redisProtoAppendTag(entry, 2, 2)
-		entry = redisProtoAppendLen(entry, b)
-		{{else if eq .ElemType "string"}}
-		entry = redisProtoAppendTag(entry, 2, 2)
-		entry = redisProtoAppendLen(entry, []byte(v))
-		{{else if eq .ElemType "[]byte"}}
-		entry = redisProtoAppendTag(entry, 2, 2)
-		entry = redisProtoAppendLen(entry, v)
-		{{else if eq .ElemType "float32"}}
-		entry = redisProtoAppendTag(entry, 2, 5)
-		entry = redisProtoAppendFixed32(entry, math.Float32bits(v))
-		{{else if eq .ElemType "float64"}}
-		entry = redisProtoAppendTag(entry, 2, 1)
-		entry = redisProtoAppendFixed64(entry, math.Float64bits(v))
-		{{else}}
-		// 枚举与整型值（varint）
-		entry = redisProtoAppendTag(entry, 2, 0)
-		entry = redisProtoAppendVarint(entry, uint64(v))
-		{{end}}
-		buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
-		buf = redisProtoAppendLen(buf, entry)
-	}
-	{{end}}
-	{{end}}
+{{range .Fields}}{{template "fieldEncode" .}}{{end}}
 	return buf, nil
 }
 
@@ -312,357 +191,7 @@ func (p *{{.MessageName}}) UnmarshalRedisProto(b []byte) error {
 		switch field {
 		{{range .Fields}}
 		case {{.ProtoTag}}: // {{.Name}}
-			{{if eq .Kind "plain"}}
-			{{if .IsMsg}}
-			if wire != 2 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadBytes(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			if err := p.{{.Name}}.UnmarshalRedisProto(v); err != nil {
-				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "{{.Name}}", err)
-			}
-			{{else if eq .GoType "string"}}
-			if wire != 2 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadBytes(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			p.{{.Name}} = string(v)
-			{{else if eq .GoType "[]byte"}}
-			if wire != 2 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadBytes(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			p.{{.Name}} = v
-			{{else if eq .GoType "float32"}}
-			if wire != 5 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadFixed32(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			p.{{.Name}} = math.Float32frombits(v)
-			{{else if eq .GoType "float64"}}
-			if wire != 1 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadFixed64(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			p.{{.Name}} = math.Float64frombits(v)
-			{{else if eq .GoType "bool"}}
-			if wire != 0 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadVarint(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			p.{{.Name}} = v != 0
-			{{else}}
-			// 枚举与整型（varint）
-			if wire != 0 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadVarint(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			p.{{.Name}} = {{.GoType}}(v)
-			{{end}}
-			{{else if eq .Kind "slice"}}
-			{{if .ElemIsMsg}}
-			if wire != 2 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadBytes(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			var elem {{.ElemType}}
-			if err := elem.UnmarshalRedisProto(v); err != nil {
-				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "{{.Name}}", err)
-			}
-			p.{{.Name}} = append(p.{{.Name}}, elem)
-			{{else if eq .ElemType "string"}}
-			if wire != 2 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadBytes(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			p.{{.Name}} = append(p.{{.Name}}, string(v))
-			{{else if eq .ElemType "[]byte"}}
-			if wire != 2 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			v, n, err := redisProtoReadBytes(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			p.{{.Name}} = append(p.{{.Name}}, v)
-			{{else if eq .ElemType "float32"}}
-			if wire == 5 {
-				v, n, err := redisProtoReadFixed32(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				p.{{.Name}} = append(p.{{.Name}}, math.Float32frombits(v))
-			} else if wire == 2 {
-				// packed：其他语言的 protoc 实现默认对 repeated 标量打包编码
-				payload, n, err := redisProtoReadBytes(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				for len(payload) > 0 {
-					v, m, err := redisProtoReadFixed32(payload)
-					if err != nil {
-						return err
-					}
-					payload = payload[m:]
-					p.{{.Name}} = append(p.{{.Name}}, math.Float32frombits(v))
-				}
-			} else {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			{{else if eq .ElemType "float64"}}
-			if wire == 1 {
-				v, n, err := redisProtoReadFixed64(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				p.{{.Name}} = append(p.{{.Name}}, math.Float64frombits(v))
-			} else if wire == 2 {
-				payload, n, err := redisProtoReadBytes(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				for len(payload) > 0 {
-					v, m, err := redisProtoReadFixed64(payload)
-					if err != nil {
-						return err
-					}
-					payload = payload[m:]
-					p.{{.Name}} = append(p.{{.Name}}, math.Float64frombits(v))
-				}
-			} else {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			{{else if eq .ElemType "bool"}}
-			if wire == 0 {
-				v, n, err := redisProtoReadVarint(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				p.{{.Name}} = append(p.{{.Name}}, v != 0)
-			} else if wire == 2 {
-				payload, n, err := redisProtoReadBytes(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				for len(payload) > 0 {
-					v, m, err := redisProtoReadVarint(payload)
-					if err != nil {
-						return err
-					}
-					payload = payload[m:]
-					p.{{.Name}} = append(p.{{.Name}}, v != 0)
-				}
-			} else {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			{{else}}
-			// 枚举与整型元素（varint，兼容 packed 编码）
-			if wire == 0 {
-				v, n, err := redisProtoReadVarint(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				p.{{.Name}} = append(p.{{.Name}}, {{.ElemType}}(v))
-			} else if wire == 2 {
-				payload, n, err := redisProtoReadBytes(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				for len(payload) > 0 {
-					v, m, err := redisProtoReadVarint(payload)
-					if err != nil {
-						return err
-					}
-					payload = payload[m:]
-					p.{{.Name}} = append(p.{{.Name}}, {{.ElemType}}(v))
-				}
-			} else {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			{{end}}
-			{{else if eq .Kind "map"}}
-			if wire != 2 {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
-			}
-			entry, n, err := redisProtoReadBytes(b)
-			if err != nil {
-				return err
-			}
-			b = b[n:]
-			var k {{.KeyType}}
-			var val {{.ElemType}}
-			for len(entry) > 0 {
-				t2, m, err := redisProtoReadVarint(entry)
-				if err != nil {
-					return err
-				}
-				entry = entry[m:]
-				switch t2 >> 3 {
-				case 1: // map 键
-					{{if eq .KeyType "string"}}
-					if t2&7 != 2 {
-						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					payload, m, err := redisProtoReadBytes(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					k = string(payload)
-					{{else if eq .KeyType "bool"}}
-					if t2&7 != 0 {
-						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					kv, m, err := redisProtoReadVarint(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					k = kv != 0
-					{{else}}
-					if t2&7 != 0 {
-						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					kv, m, err := redisProtoReadVarint(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					k = {{.KeyType}}(kv)
-					{{end}}
-				case 2: // map 值
-					{{if .ElemIsMsg}}
-					if t2&7 != 2 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					payload, m, err := redisProtoReadBytes(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					if err := val.UnmarshalRedisProto(payload); err != nil {
-						return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "{{.Name}}", err)
-					}
-					{{else if eq .ElemType "string"}}
-					if t2&7 != 2 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					payload, m, err := redisProtoReadBytes(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					val = string(payload)
-					{{else if eq .ElemType "[]byte"}}
-					if t2&7 != 2 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					payload, m, err := redisProtoReadBytes(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					val = payload
-					{{else if eq .ElemType "float32"}}
-					if t2&7 != 5 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					fv, m, err := redisProtoReadFixed32(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					val = math.Float32frombits(fv)
-					{{else if eq .ElemType "float64"}}
-					if t2&7 != 1 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					fv, m, err := redisProtoReadFixed64(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					val = math.Float64frombits(fv)
-					{{else if eq .ElemType "bool"}}
-					if t2&7 != 0 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					bv, m, err := redisProtoReadVarint(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					val = bv != 0
-					{{else}}
-					// 枚举与整型值（varint）
-					if t2&7 != 0 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
-					}
-					ev, m, err := redisProtoReadVarint(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					val = {{.ElemType}}(ev)
-					{{end}}
-				default:
-					m, err = redisProtoSkip(entry, t2&7)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-				}
-			}
-			if p.{{.Name}} == nil {
-				p.{{.Name}} = make(map[{{.KeyType}}]{{.ElemType}})
-			}
-			p.{{.Name}}[k] = val
-			{{end}}
+{{template "fieldDecode" .}}
 		{{end}}
 		default:
 			n, err = redisProtoSkip(b, wire)
@@ -674,13 +203,47 @@ func (p *{{.MessageName}}) UnmarshalRedisProto(b []byte) error {
 	}
 	return nil
 }
+
+{{range .Fields}}
+{{if or (eq .Kind "map") (eq .Kind "slice")}}
+// MarshalRedisProto{{.Name}} 将字段 {{.Name}}（集合字段）整体序列化为 protobuf wire format 字节，
+// 即 {{.Name}} 在 Redis Hash 中的值（hash field = tag {{.ProtoTag}}）
+func (p *{{$.MessageName}}) MarshalRedisProto{{.Name}}() ([]byte, error) {
+	var buf []byte
+{{template "fieldEncode" .}}
+	return buf, nil
+}
+
+// UnmarshalRedisProto{{.Name}} 从 {{.Name}} 字段的 protobuf wire format 字节反序列化
+// （字节须为 MarshalRedisProto{{.Name}} 的输出，或等价的单字段 protobuf 编码）
+func (p *{{$.MessageName}}) UnmarshalRedisProto{{.Name}}(b []byte) error {
+	p.{{.Name}} = nil
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
+		if err != nil {
+			return err
+		}
+		if tag>>3 != {{.ProtoTag}} {
+			return fmt.Errorf("protobuf 字段 %s tag 不匹配: %d", "{{.Name}}", tag>>3)
+		}
+		b = b[n:]
+		{
+			wire := tag & 7
+{{template "fieldDecode" .}}
+		}
+	}
+	return nil
+}
+{{end}}
+{{end}}
+
 // GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
 // fields: 要读取的字段编号列表，如 {{.FieldType}}_Name, {{.FieldType}}_Age
 //          如果 fields 为空（长度为 0），则默认读取所有字段（即 {{.FieldType}}IDs）
-//          集合字段（map/repeated）从元素级存储（<tag>:<key|index>）整体读回
+//          集合字段（map/repeated）整体 protobuf 反序列化
 func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...{{.FieldType}}) error {
 	key := fmt.Sprintf({{printf "%q" .KeyFormat}}, REDBKey, ida, idb)
 
@@ -690,13 +253,13 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 		fieldsToUse = {{.FieldType}}IDs
 	}
 
-	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...（集合字段的返回值会被忽略）
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
 	args := []interface{}{key}
 	for _, fieldID := range fieldsToUse {
 		args = append(args, fieldID)
 	}
 
-	// 一次 HMGET 获取所有直存字段值
+	// 一次 HMGET 获取所有字段值
 	reply, err := conn.Do("HMGET", args...)
 	if err != nil {
 		return fmt.Errorf("HMGET 失败: %v", err)
@@ -784,9 +347,11 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 			}
 			{{end}}
 			{{else}}
-			// --- 集合字段: {{.Name}}（元素级存储，整体读回）---
-			if err := p.Get{{.MethodPrefix}}All(conn, REDBKey, ida, idb); err != nil {
-				return fmt.Errorf("读取字段 %s 失败: %v", "{{.Name}}", err)
+			// --- 集合字段: {{.Name}}（整体 protobuf 反序列化）---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.UnmarshalRedisProto{{.Name}}(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "{{.Name}}", err)
+				}
 			}
 			{{end}}
 		{{end}}
@@ -805,7 +370,7 @@ func (p *{{.MessageName}}) GetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
 // fields: 要存储的字段编号列表，如 {{.FieldType}}_Name, {{.FieldType}}_Age
 //          如果 fields 为空（长度为 0），则默认存储所有字段（即 {{.FieldType}}IDs）
-//          集合字段（map/repeated）以元素级存储整体替换（Lua 原子操作）
+//          集合字段（map/repeated）整体 protobuf 序列化后写入
 func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...{{.FieldType}}) error {
 	key := fmt.Sprintf({{printf "%q" .KeyFormat}}, REDBKey, ida, idb)
 	args := []interface{}{key}
@@ -835,10 +400,12 @@ func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 			args = append(args, fieldID, p.{{.Name}})
 			{{end}}
 			{{else}}
-			// --- 集合字段: {{.Name}}（元素级存储，整体替换）---
-			if err := p.Set{{.MethodPrefix}}All(conn, REDBKey, ida, idb, p.{{.Name}}); err != nil {
-				return fmt.Errorf("写入字段 %s 失败: %v", "{{.Name}}", err)
+			// --- 集合字段: {{.Name}}（整体 protobuf 序列化）---
+			b, err := p.MarshalRedisProto{{.Name}}()
+			if err != nil {
+				return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "{{.Name}}", err)
 			}
+			args = append(args, fieldID, b)
 			{{end}}
 		{{end}}
 		default:
@@ -846,527 +413,497 @@ func (p *{{.MessageName}}) SetFields(conn redis.Conn, REDBKey uint32, ida, idb u
 		}
 	}
 
-	// 仅当存在直存字段时才执行 HSET（纯集合字段的写入已在各 Set<Field>All 中完成）
+	// 所有字段统一一次 HSET 写入
 	if len(args) > 1 {
 		_, err := conn.Do("HSET", args...)
 		return err
 	}
 	return nil
 }
-{{range .Fields}}
-{{if eq .Kind "map"}}
-// Set{{.MethodPrefix}} 设置 {{.Name}} 中单个键的值（元素级写入，不触碰其他元素）
-func (p *{{$.MessageName}}) Set{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, k {{.KeyType}}, v {{.ElemType}}) error {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	{{if .ElemIsMsg}}
-	b, err := v.MarshalRedisProto()
-	if err != nil {
-		return fmt.Errorf("protobuf 序列化元素失败: %v", err)
-	}
-	_, err = conn.Do("HSET", key, fmt.Sprintf("%d:%v", {{.ProtoTag}}, k), b)
-	{{else}}
-	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%v", {{.ProtoTag}}, k), v)
-	{{end}}
-	return err
-}
 
-// Get{{.MethodPrefix}} 读取 {{.Name}} 中单个键的值；键不存在时返回零值与 false
-func (p *{{$.MessageName}}) Get{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, k {{.KeyType}}) ({{.ElemType}}, bool, error) {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%v", {{.ProtoTag}}, k))
-	if err != nil {
-		return {{template "zero" .}}, false, err
-	}
-	if reply == nil {
-		return {{template "zero" .}}, false, nil
-	}
-	{{if .ElemIsMsg}}
-	b, err := redis.Bytes(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	var v {{.ElemType}}
-	if err := v.UnmarshalRedisProto(b); err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("protobuf 反序列化元素失败: %v", err)
-	}
-	{{else if .ElemIsEnum}}
-	iv, err := redis.Int(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析枚举元素失败: %v", err)
-	}
-	v := {{.ElemType}}(iv)
-	{{else if eq .ElemType "string"}}
-	v, err := redis.String(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "int32"}}
-	iv, err := redis.Int(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	v := int32(iv)
-	{{else if eq .ElemType "int64"}}
-	v, err := redis.Int64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "uint32"}}
-	iv, err := redis.Uint64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	v := uint32(iv)
-	{{else if eq .ElemType "uint64"}}
-	v, err := redis.Uint64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "float32"}}
-	fv, err := redis.Float64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	v := float32(fv)
-	{{else if eq .ElemType "float64"}}
-	v, err := redis.Float64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "bool"}}
-	v, err := redis.Bool(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "[]byte"}}
-	v, err := redis.Bytes(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{end}}
-	return v, true, nil
-}
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。
 
-// Del{{.MethodPrefix}} 删除 {{.Name}} 中单个键；返回是否删除成功
-func (p *{{$.MessageName}}) Del{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, k {{.KeyType}}) (bool, error) {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%v", {{.ProtoTag}}, k))
+{{define "fieldEncode"}}
+	// 字段 {{.Name}}（tag {{.ProtoTag}}）
+{{if eq .Kind "plain"}}
+{{if .IsMsg}}
+{
+	b, err := p.{{.Name}}.MarshalRedisProto()
 	if err != nil {
-		return false, err
+		return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "{{.Name}}", err)
 	}
-	n, err := redis.Int(reply, nil)
-	return n > 0, err
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
+	buf = redisProtoAppendLen(buf, b)
 }
-
-// Get{{.MethodPrefix}}All 读取 {{.Name}} 全部键值，填充到 p.{{.Name}}（未写入过则为空 map）
-func (p *{{$.MessageName}}) Get{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	prefix := fmt.Sprintf("%d:", {{.ProtoTag}})
-	result := make(map[{{.KeyType}}]{{.ElemType}})
-	cursor := "0"
-	for {
-		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
-		if err != nil {
-			return fmt.Errorf("HSCAN 失败: %v", err)
-		}
-		vals, err := redis.Values(reply, nil)
-		if err != nil {
-			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
-		}
-		cursor, err = redis.String(vals[0], nil)
-		if err != nil {
-			return fmt.Errorf("解析游标失败: %v", err)
-		}
-		entries, err := redis.Strings(vals[1], nil)
-		if err != nil {
-			return fmt.Errorf("解析条目失败: %v", err)
-		}
-		for i := 0; i+1 < len(entries); i += 2 {
-			{{if eq .KeyType "string"}}
-			kk := entries[i][len(prefix):]
-			{{else if eq .KeyType "int32"}}
-			kv, err := strconv.ParseInt(entries[i][len(prefix):], 10, 32)
-			if err != nil {
-				return fmt.Errorf("解析键失败: %v", err)
-			}
-			kk := int32(kv)
-			{{else if eq .KeyType "int64"}}
-			kv, err := strconv.ParseInt(entries[i][len(prefix):], 10, 64)
-			if err != nil {
-				return fmt.Errorf("解析键失败: %v", err)
-			}
-			kk := kv
-			{{else if eq .KeyType "uint32"}}
-			kv, err := strconv.ParseUint(entries[i][len(prefix):], 10, 32)
-			if err != nil {
-				return fmt.Errorf("解析键失败: %v", err)
-			}
-			kk := uint32(kv)
-			{{else if eq .KeyType "uint64"}}
-			kv, err := strconv.ParseUint(entries[i][len(prefix):], 10, 64)
-			if err != nil {
-				return fmt.Errorf("解析键失败: %v", err)
-			}
-			kk := kv
-			{{else if eq .KeyType "bool"}}
-			kv, err := strconv.ParseBool(entries[i][len(prefix):])
-			if err != nil {
-				return fmt.Errorf("解析键失败: %v", err)
-			}
-			kk := kv
-			{{end}}
-			{{if .ElemIsMsg}}
-			var vv {{.ElemType}}
-			if err := vv.UnmarshalRedisProto([]byte(entries[i+1])); err != nil {
-				return fmt.Errorf("protobuf 反序列化元素失败: %v", err)
-			}
-			{{else if .ElemIsEnum}}
-			iv, err := redis.Int([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析枚举元素失败: %v", err)
-			}
-			vv := {{.ElemType}}(iv)
-			{{else if eq .ElemType "string"}}
-			vv := entries[i+1]
-			{{else if eq .ElemType "int32"}}
-			iv, err := redis.Int([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			vv := int32(iv)
-			{{else if eq .ElemType "int64"}}
-			vv, err := redis.Int64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			{{else if eq .ElemType "uint32"}}
-			iv, err := redis.Uint64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			vv := uint32(iv)
-			{{else if eq .ElemType "uint64"}}
-			vv, err := redis.Uint64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			{{else if eq .ElemType "float32"}}
-			fv, err := redis.Float64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			vv := float32(fv)
-			{{else if eq .ElemType "float64"}}
-			vv, err := redis.Float64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			{{else if eq .ElemType "bool"}}
-			vv, err := redis.Bool([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			{{else if eq .ElemType "[]byte"}}
-			vv := []byte(entries[i+1])
-			{{end}}
-			result[kk] = vv
-		}
-		if cursor == "0" {
-			break
-		}
-	}
-	if len(result) == 0 {
-		p.{{.Name}} = nil
-		return nil
-	}
-	p.{{.Name}} = result
-	return nil
+{{else if eq .GoType "string"}}
+if p.{{.Name}} != "" {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
+	buf = redisProtoAppendLen(buf, []byte(p.{{.Name}}))
 }
-
-// Set{{.MethodPrefix}}All 用给定 map 整体替换 {{.Name}}（Lua 原子操作：先清空旧元素再写入）
-func (p *{{$.MessageName}}) Set{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64, m map[{{.KeyType}}]{{.ElemType}}) error {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	const script = {{printf "%q" $.LuaReplaceScript}}
-	args := []interface{}{script, 1, key, {{.ProtoTag}}}
-	for k, v := range m {
-		{{if .ElemIsMsg}}
-		b, err := v.MarshalRedisProto()
-		if err != nil {
-			return fmt.Errorf("protobuf 序列化元素失败: %v", err)
-		}
-		args = append(args, fmt.Sprintf("%v", k), b)
-		{{else}}
-		args = append(args, fmt.Sprintf("%v", k), v)
-		{{end}}
-	}
-	_, err := conn.Do("EVAL", args...)
-	return err
+{{else if eq .GoType "[]byte"}}
+if len(p.{{.Name}}) > 0 {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
+	buf = redisProtoAppendLen(buf, p.{{.Name}})
 }
-
-// Del{{.MethodPrefix}}All 删除 {{.Name}} 的全部元素（Lua 原子操作）
-func (p *{{$.MessageName}}) Del{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	const script = {{printf "%q" $.LuaDeleteScript}}
-	_, err := conn.Do("EVAL", script, 1, key, {{.ProtoTag}})
-	return err
+{{else if eq .GoType "float32"}}
+if p.{{.Name}} != 0 {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 5)
+	buf = redisProtoAppendFixed32(buf, math.Float32bits(p.{{.Name}}))
 }
+{{else if eq .GoType "float64"}}
+if p.{{.Name}} != 0 {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 1)
+	buf = redisProtoAppendFixed64(buf, math.Float64bits(p.{{.Name}}))
+}
+{{else if eq .GoType "bool"}}
+if p.{{.Name}} {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 0)
+	buf = redisProtoAppendVarint(buf, 1)
+}
+{{else}}
+// 枚举与整型（varint）
+if p.{{.Name}} != 0 {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 0)
+	buf = redisProtoAppendVarint(buf, uint64(p.{{.Name}}))
+}
+{{end}}
 {{else if eq .Kind "slice"}}
-// Set{{.MethodPrefix}} 设置 {{.Name}} 中指定下标的元素（元素级写入，不触碰其他元素）
-func (p *{{$.MessageName}}) Set{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int, v {{.ElemType}}) error {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	{{if .ElemIsMsg}}
+{{if .ElemIsMsg}}
+for _, v := range p.{{.Name}} {
 	b, err := v.MarshalRedisProto()
 	if err != nil {
-		return fmt.Errorf("protobuf 序列化元素失败: %v", err)
+		return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "{{.Name}}", err)
 	}
-	_, err = conn.Do("HSET", key, fmt.Sprintf("%d:%d", {{.ProtoTag}}, i), b)
-	{{else}}
-	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%d", {{.ProtoTag}}, i), v)
-	{{end}}
-	return err
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
+	buf = redisProtoAppendLen(buf, b)
 }
-
-// Get{{.MethodPrefix}} 读取 {{.Name}} 中指定下标的元素；下标不存在时返回零值与 false
-func (p *{{$.MessageName}}) Get{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) ({{.ElemType}}, bool, error) {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%d", {{.ProtoTag}}, i))
-	if err != nil {
-		return {{template "zero" .}}, false, err
-	}
-	if reply == nil {
-		return {{template "zero" .}}, false, nil
-	}
-	{{if .ElemIsMsg}}
-	b, err := redis.Bytes(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	var v {{.ElemType}}
-	if err := v.UnmarshalRedisProto(b); err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("protobuf 反序列化元素失败: %v", err)
-	}
-	{{else if .ElemIsEnum}}
-	iv, err := redis.Int(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析枚举元素失败: %v", err)
-	}
-	v := {{.ElemType}}(iv)
-	{{else if eq .ElemType "string"}}
-	v, err := redis.String(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "int32"}}
-	iv, err := redis.Int(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	v := int32(iv)
-	{{else if eq .ElemType "int64"}}
-	v, err := redis.Int64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "uint32"}}
-	iv, err := redis.Uint64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	v := uint32(iv)
-	{{else if eq .ElemType "uint64"}}
-	v, err := redis.Uint64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "float32"}}
-	fv, err := redis.Float64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	v := float32(fv)
-	{{else if eq .ElemType "float64"}}
-	v, err := redis.Float64(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "bool"}}
-	v, err := redis.Bool(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{else if eq .ElemType "[]byte"}}
-	v, err := redis.Bytes(reply, nil)
-	if err != nil {
-		return {{template "zero" .}}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	{{end}}
-	return v, true, nil
+{{else if eq .ElemType "string"}}
+for _, v := range p.{{.Name}} {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
+	buf = redisProtoAppendLen(buf, []byte(v))
 }
-
-// Del{{.MethodPrefix}} 删除 {{.Name}} 中指定下标的元素；返回是否删除成功。
-// 注意：删除后不压缩下标，后续 Append 会继续使用最大下标 + 1
-func (p *{{$.MessageName}}) Del{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (bool, error) {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%d", {{.ProtoTag}}, i))
-	if err != nil {
-		return false, err
-	}
-	n, err := redis.Int(reply, nil)
-	return n > 0, err
+{{else if eq .ElemType "[]byte"}}
+for _, v := range p.{{.Name}} {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
+	buf = redisProtoAppendLen(buf, v)
 }
-
-// Append{{.MethodPrefix}} 追加一个元素到 {{.Name}} 末尾，返回新元素下标（Lua 原子操作）
-func (p *{{$.MessageName}}) Append{{.MethodPrefix}}(conn redis.Conn, REDBKey uint32, ida, idb uint64, v {{.ElemType}}) (int, error) {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	const script = {{printf "%q" $.LuaAppendScript}}
-	{{if .ElemIsMsg}}
+{{else if eq .ElemType "float32"}}
+for _, v := range p.{{.Name}} {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 5)
+	buf = redisProtoAppendFixed32(buf, math.Float32bits(v))
+}
+{{else if eq .ElemType "float64"}}
+for _, v := range p.{{.Name}} {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 1)
+	buf = redisProtoAppendFixed64(buf, math.Float64bits(v))
+}
+{{else}}
+// 枚举与整型元素（varint）
+for _, v := range p.{{.Name}} {
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 0)
+	buf = redisProtoAppendVarint(buf, uint64(v))
+}
+{{end}}
+{{else if eq .Kind "map"}}
+for k, v := range p.{{.Name}} {
+	var entry []byte
+{{if eq .KeyType "string"}}
+	entry = redisProtoAppendTag(entry, 1, 2)
+	entry = redisProtoAppendLen(entry, []byte(k))
+{{else if eq .KeyType "bool"}}
+	entry = redisProtoAppendTag(entry, 1, 0)
+	if k {
+		entry = redisProtoAppendVarint(entry, 1)
+	}
+{{else}}
+	entry = redisProtoAppendTag(entry, 1, 0)
+	entry = redisProtoAppendVarint(entry, uint64(k))
+{{end}}
+{{if .ElemIsMsg}}
 	b, err := v.MarshalRedisProto()
 	if err != nil {
-		return 0, fmt.Errorf("protobuf 序列化元素失败: %v", err)
+		return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "{{.Name}}", err)
 	}
-	reply, err := conn.Do("EVAL", script, 1, key, {{.ProtoTag}}, b)
-	{{else}}
-	reply, err := conn.Do("EVAL", script, 1, key, {{.ProtoTag}}, v)
-	{{end}}
+	entry = redisProtoAppendTag(entry, 2, 2)
+	entry = redisProtoAppendLen(entry, b)
+{{else if eq .ElemType "string"}}
+	entry = redisProtoAppendTag(entry, 2, 2)
+	entry = redisProtoAppendLen(entry, []byte(v))
+{{else if eq .ElemType "[]byte"}}
+	entry = redisProtoAppendTag(entry, 2, 2)
+	entry = redisProtoAppendLen(entry, v)
+{{else if eq .ElemType "float32"}}
+	entry = redisProtoAppendTag(entry, 2, 5)
+	entry = redisProtoAppendFixed32(entry, math.Float32bits(v))
+{{else if eq .ElemType "float64"}}
+	entry = redisProtoAppendTag(entry, 2, 1)
+	entry = redisProtoAppendFixed64(entry, math.Float64bits(v))
+{{else}}
+	// 枚举与整型值（varint）
+	entry = redisProtoAppendTag(entry, 2, 0)
+	entry = redisProtoAppendVarint(entry, uint64(v))
+{{end}}
+	buf = redisProtoAppendTag(buf, {{.ProtoTag}}, 2)
+	buf = redisProtoAppendLen(buf, entry)
+}
+{{end}}
+{{end}}
+
+{{define "fieldDecode"}}
+{{if eq .Kind "plain"}}
+{{if .IsMsg}}
+if wire != 2 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadBytes(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+if err := p.{{.Name}}.UnmarshalRedisProto(v); err != nil {
+	return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "{{.Name}}", err)
+}
+{{else if eq .GoType "string"}}
+if wire != 2 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadBytes(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+p.{{.Name}} = string(v)
+{{else if eq .GoType "[]byte"}}
+if wire != 2 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadBytes(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+p.{{.Name}} = v
+{{else if eq .GoType "float32"}}
+if wire != 5 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadFixed32(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+p.{{.Name}} = math.Float32frombits(v)
+{{else if eq .GoType "float64"}}
+if wire != 1 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadFixed64(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+p.{{.Name}} = math.Float64frombits(v)
+{{else if eq .GoType "bool"}}
+if wire != 0 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadVarint(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+p.{{.Name}} = v != 0
+{{else}}
+// 枚举与整型（varint）
+if wire != 0 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadVarint(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+p.{{.Name}} = {{.GoType}}(v)
+{{end}}
+{{else if eq .Kind "slice"}}
+{{if .ElemIsMsg}}
+if wire != 2 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadBytes(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+var elem {{.ElemType}}
+if err := elem.UnmarshalRedisProto(v); err != nil {
+	return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "{{.Name}}", err)
+}
+p.{{.Name}} = append(p.{{.Name}}, elem)
+{{else if eq .ElemType "string"}}
+if wire != 2 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadBytes(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+p.{{.Name}} = append(p.{{.Name}}, string(v))
+{{else if eq .ElemType "[]byte"}}
+if wire != 2 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+v, n, err := redisProtoReadBytes(b)
+if err != nil {
+	return err
+}
+b = b[n:]
+p.{{.Name}} = append(p.{{.Name}}, v)
+{{else if eq .ElemType "float32"}}
+if wire == 5 {
+	v, n, err := redisProtoReadFixed32(b)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	n, err := redis.Int(reply, nil)
-	return n, err
+	b = b[n:]
+	p.{{.Name}} = append(p.{{.Name}}, math.Float32frombits(v))
+} else if wire == 2 {
+	// packed：其他语言的 protoc 实现默认对 repeated 标量打包编码
+	payload, n, err := redisProtoReadBytes(b)
+	if err != nil {
+		return err
+	}
+	b = b[n:]
+	for len(payload) > 0 {
+		v, m, err := redisProtoReadFixed32(payload)
+		if err != nil {
+			return err
+		}
+		payload = payload[m:]
+		p.{{.Name}} = append(p.{{.Name}}, math.Float32frombits(v))
+	}
+} else {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
 }
-
-// Get{{.MethodPrefix}}All 读取 {{.Name}} 全部元素（按存储下标升序），填充到 p.{{.Name}}（未写入过则为 nil）
-func (p *{{$.MessageName}}) Get{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	prefix := fmt.Sprintf("%d:", {{.ProtoTag}})
-	type item struct {
-		idx int
-		val {{.ElemType}}
+{{else if eq .ElemType "float64"}}
+if wire == 1 {
+	v, n, err := redisProtoReadFixed64(b)
+	if err != nil {
+		return err
 	}
-	var items []item
-	cursor := "0"
-	for {
-		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
-		if err != nil {
-			return fmt.Errorf("HSCAN 失败: %v", err)
-		}
-		vals, err := redis.Values(reply, nil)
-		if err != nil {
-			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
-		}
-		cursor, err = redis.String(vals[0], nil)
-		if err != nil {
-			return fmt.Errorf("解析游标失败: %v", err)
-		}
-		entries, err := redis.Strings(vals[1], nil)
-		if err != nil {
-			return fmt.Errorf("解析条目失败: %v", err)
-		}
-		for i := 0; i+1 < len(entries); i += 2 {
-			idx, err := strconv.Atoi(entries[i][len(prefix):])
-			if err != nil {
-				return fmt.Errorf("解析下标失败: %v", err)
-			}
-			{{if .ElemIsMsg}}
-			var vv {{.ElemType}}
-			if err := vv.UnmarshalRedisProto([]byte(entries[i+1])); err != nil {
-				return fmt.Errorf("protobuf 反序列化元素失败: %v", err)
-			}
-			{{else if .ElemIsEnum}}
-			iv, err := redis.Int([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析枚举元素失败: %v", err)
-			}
-			vv := {{.ElemType}}(iv)
-			{{else if eq .ElemType "string"}}
-			vv := entries[i+1]
-			{{else if eq .ElemType "int32"}}
-			iv, err := redis.Int([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			vv := int32(iv)
-			{{else if eq .ElemType "int64"}}
-			vv, err := redis.Int64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			{{else if eq .ElemType "uint32"}}
-			iv, err := redis.Uint64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			vv := uint32(iv)
-			{{else if eq .ElemType "uint64"}}
-			vv, err := redis.Uint64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			{{else if eq .ElemType "float32"}}
-			fv, err := redis.Float64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			vv := float32(fv)
-			{{else if eq .ElemType "float64"}}
-			vv, err := redis.Float64([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			{{else if eq .ElemType "bool"}}
-			vv, err := redis.Bool([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			{{else if eq .ElemType "[]byte"}}
-			vv := []byte(entries[i+1])
-			{{end}}
-			items = append(items, item{idx: idx, val: vv})
-		}
-		if cursor == "0" {
-			break
-		}
+	b = b[n:]
+	p.{{.Name}} = append(p.{{.Name}}, math.Float64frombits(v))
+} else if wire == 2 {
+	payload, n, err := redisProtoReadBytes(b)
+	if err != nil {
+		return err
 	}
-	if len(items) == 0 {
-		p.{{.Name}} = nil
-		return nil
+	b = b[n:]
+	for len(payload) > 0 {
+		v, m, err := redisProtoReadFixed64(payload)
+		if err != nil {
+			return err
+		}
+		payload = payload[m:]
+		p.{{.Name}} = append(p.{{.Name}}, math.Float64frombits(v))
 	}
-	sort.Slice(items, func(a, b int) bool { return items[a].idx < items[b].idx })
-	result := make([]{{.ElemType}}, len(items))
-	for i, it := range items {
-		result[i] = it.val
-	}
-	p.{{.Name}} = result
-	return nil
+} else {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
 }
-
-// Set{{.MethodPrefix}}All 用给定切片整体替换 {{.Name}}（Lua 原子操作：清空后按下标 0..n-1 重建，可修复删除留下的空洞）
-func (p *{{$.MessageName}}) Set{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64, s []{{.ElemType}}) error {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	const script = {{printf "%q" $.LuaSliceReplaceScript}}
-	args := []interface{}{script, 1, key, {{.ProtoTag}}}
-	for _, v := range s {
-		{{if .ElemIsMsg}}
-		b, err := v.MarshalRedisProto()
-		if err != nil {
-			return fmt.Errorf("protobuf 序列化元素失败: %v", err)
-		}
-		args = append(args, b)
-		{{else}}
-		args = append(args, v)
-		{{end}}
+{{else if eq .ElemType "bool"}}
+if wire == 0 {
+	v, n, err := redisProtoReadVarint(b)
+	if err != nil {
+		return err
 	}
-	_, err := conn.Do("EVAL", args...)
+	b = b[n:]
+	p.{{.Name}} = append(p.{{.Name}}, v != 0)
+} else if wire == 2 {
+	payload, n, err := redisProtoReadBytes(b)
+	if err != nil {
+		return err
+	}
+	b = b[n:]
+	for len(payload) > 0 {
+		v, m, err := redisProtoReadVarint(payload)
+		if err != nil {
+			return err
+		}
+		payload = payload[m:]
+		p.{{.Name}} = append(p.{{.Name}}, v != 0)
+	}
+} else {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+{{else}}
+// 枚举与整型元素（varint，兼容 packed 编码）
+if wire == 0 {
+	v, n, err := redisProtoReadVarint(b)
+	if err != nil {
+		return err
+	}
+	b = b[n:]
+	p.{{.Name}} = append(p.{{.Name}}, {{.ElemType}}(v))
+} else if wire == 2 {
+	payload, n, err := redisProtoReadBytes(b)
+	if err != nil {
+		return err
+	}
+	b = b[n:]
+	for len(payload) > 0 {
+		v, m, err := redisProtoReadVarint(payload)
+		if err != nil {
+			return err
+		}
+		payload = payload[m:]
+		p.{{.Name}} = append(p.{{.Name}}, {{.ElemType}}(v))
+	}
+} else {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+{{end}}
+{{else if eq .Kind "map"}}
+if wire != 2 {
+	return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "{{.Name}}", wire)
+}
+entry, n, err := redisProtoReadBytes(b)
+if err != nil {
 	return err
 }
-
-// Del{{.MethodPrefix}}All 删除 {{.Name}} 的全部元素（Lua 原子操作）
-func (p *{{$.MessageName}}) Del{{.MethodPrefix}}All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf({{printf "%q" $.KeyFormat}}, REDBKey, ida, idb)
-	const script = {{printf "%q" $.LuaDeleteScript}}
-	_, err := conn.Do("EVAL", script, 1, key, {{.ProtoTag}})
-	return err
+b = b[n:]
+var k {{.KeyType}}
+var val {{.ElemType}}
+for len(entry) > 0 {
+	t2, m, err := redisProtoReadVarint(entry)
+	if err != nil {
+		return err
+	}
+	entry = entry[m:]
+	switch t2 >> 3 {
+	case 1: // map 键
+{{if eq .KeyType "string"}}
+		if t2&7 != 2 {
+			return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		payload, m, err := redisProtoReadBytes(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		k = string(payload)
+{{else if eq .KeyType "bool"}}
+		if t2&7 != 0 {
+			return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		kv, m, err := redisProtoReadVarint(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		k = kv != 0
+{{else}}
+		if t2&7 != 0 {
+			return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		kv, m, err := redisProtoReadVarint(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		k = {{.KeyType}}(kv)
+{{end}}
+	case 2: // map 值
+{{if .ElemIsMsg}}
+		if t2&7 != 2 {
+			return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		payload, m, err := redisProtoReadBytes(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		if err := val.UnmarshalRedisProto(payload); err != nil {
+			return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "{{.Name}}", err)
+		}
+{{else if eq .ElemType "string"}}
+		if t2&7 != 2 {
+			return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		payload, m, err := redisProtoReadBytes(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		val = string(payload)
+{{else if eq .ElemType "[]byte"}}
+		if t2&7 != 2 {
+			return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		payload, m, err := redisProtoReadBytes(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		val = payload
+{{else if eq .ElemType "float32"}}
+		if t2&7 != 5 {
+			return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		fv, m, err := redisProtoReadFixed32(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		val = math.Float32frombits(fv)
+{{else if eq .ElemType "float64"}}
+		if t2&7 != 1 {
+			return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		fv, m, err := redisProtoReadFixed64(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		val = math.Float64frombits(fv)
+{{else if eq .ElemType "bool"}}
+		if t2&7 != 0 {
+			return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		bv, m, err := redisProtoReadVarint(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		val = bv != 0
+{{else}}
+		// 枚举与整型值（varint）
+		if t2&7 != 0 {
+			return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "{{.Name}}", t2&7)
+		}
+		ev, m, err := redisProtoReadVarint(entry)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+		val = {{.ElemType}}(ev)
+{{end}}
+	default:
+		m, err = redisProtoSkip(entry, t2&7)
+		if err != nil {
+			return err
+		}
+		entry = entry[m:]
+	}
 }
+if p.{{.Name}} == nil {
+	p.{{.Name}} = make(map[{{.KeyType}}]{{.ElemType}})
+}
+p.{{.Name}}[k] = val
 {{end}}
 {{end}}
 `

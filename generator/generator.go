@@ -15,67 +15,6 @@ import (
 // 可通过 --redis_opt=key_format=... 覆盖。
 const DefaultKeyFormat = "REDB#%d:%d:%d"
 
-// 集合字段元素级操作使用的 Lua 脚本。
-// 约定：KEYS[1] 为消息的 hash key，ARGV[1] 为字段编号（元素 hash field 形如 "<tag>:<key>"）。
-const luaReplaceScript = `local prefix = ARGV[1]..":"
-local cursor = "0"
-repeat
-  local r = redis.call("HSCAN", KEYS[1], cursor, "MATCH", prefix.."*", "COUNT", 512)
-  cursor = r[1]
-  local entries = r[2]
-  for i = 1, #entries, 2 do
-    redis.call("HDEL", KEYS[1], entries[i])
-  end
-until cursor == "0"
-for i = 2, #ARGV, 2 do
-  redis.call("HSET", KEYS[1], prefix..ARGV[i], ARGV[i+1])
-end
-return 1`
-
-const luaDeleteScript = `local prefix = ARGV[1]..":"
-local cursor = "0"
-repeat
-  local r = redis.call("HSCAN", KEYS[1], cursor, "MATCH", prefix.."*", "COUNT", 512)
-  cursor = r[1]
-  local entries = r[2]
-  for i = 1, #entries, 2 do
-    redis.call("HDEL", KEYS[1], entries[i])
-  end
-until cursor == "0"
-return 1`
-
-const luaAppendScript = `local prefix = ARGV[1]..":"
-local max = -1
-local cursor = "0"
-repeat
-  local r = redis.call("HSCAN", KEYS[1], cursor, "MATCH", prefix.."*", "COUNT", 512)
-  cursor = r[1]
-  local entries = r[2]
-  for i = 1, #entries, 2 do
-    local idx = tonumber(string.sub(entries[i], #prefix + 1))
-    if idx and idx > max then max = idx end
-  end
-until cursor == "0"
-redis.call("HSET", KEYS[1], prefix..(max + 1), ARGV[2])
-return max + 1`
-
-// luaSliceReplaceScript 与 luaReplaceScript 的区别：repeated 只传元素值（无键），
-// 清空后按下标 0..n-1 重建，可顺带修复删除留下的下标空洞。
-const luaSliceReplaceScript = `local prefix = ARGV[1]..":"
-local cursor = "0"
-repeat
-  local r = redis.call("HSCAN", KEYS[1], cursor, "MATCH", prefix.."*", "COUNT", 512)
-  cursor = r[1]
-  local entries = r[2]
-  for i = 1, #entries, 2 do
-    redis.call("HDEL", KEYS[1], entries[i])
-  end
-until cursor == "0"
-for i = 2, #ARGV do
-  redis.call("HSET", KEYS[1], prefix..(i - 2), ARGV[i])
-end
-return 1`
-
 // GenerateRedisCode 为一个 message 生成 Redis 存取代码。
 func GenerateRedisCode(gen *protogen.Plugin, file *protogen.File, msg *protogen.Message, g *protogen.GeneratedFile, keyFormat string) ([]byte, error) {
 	fieldTypes := resolveFieldTypeNames(CollectMessages(file))
@@ -84,31 +23,25 @@ func GenerateRedisCode(gen *protogen.Plugin, file *protogen.File, msg *protogen.
 	for _, field := range msg.Fields {
 		ft := fieldTypeFor(gen, g, field)
 		fields = append(fields, FieldInfo{
-			Name:         field.GoName,
-			ProtoTag:     int(field.Desc.Number()),
-			GoType:       ft.goType,
-			Kind:         ft.kind,
-			KeyType:      ft.keyType,
-			ElemType:     ft.elemType,
-			ElemIsMsg:    ft.elemIsMsg,
-			ElemIsEnum:   ft.elemIsEnum,
-			IsMsg:        ft.wholeMsg,
-			IsEnum:       ft.isEnum,
-			MethodPrefix: field.GoName,
+			Name:       field.GoName,
+			ProtoTag:   int(field.Desc.Number()),
+			GoType:     ft.goType,
+			Kind:       ft.kind,
+			KeyType:    ft.keyType,
+			ElemType:   ft.elemType,
+			ElemIsMsg:  ft.elemIsMsg,
+			ElemIsEnum: ft.elemIsEnum,
+			IsMsg:      ft.wholeMsg,
+			IsEnum:     ft.isEnum,
 		})
 	}
-	resolveMethodPrefixes(fields)
 
 	info := MessageInfo{
-		PackageName:           string(file.GoPackageName),
-		MessageName:           string(msg.GoIdent.GoName),
-		FieldType:             fieldTypes[msg],
-		Fields:                fields,
-		KeyFormat:             keyFormat,
-		LuaReplaceScript:      luaReplaceScript,
-		LuaSliceReplaceScript: luaSliceReplaceScript,
-		LuaDeleteScript:       luaDeleteScript,
-		LuaAppendScript:       luaAppendScript,
+		PackageName: string(file.GoPackageName),
+		MessageName: string(msg.GoIdent.GoName),
+		FieldType:   fieldTypes[msg],
+		Fields:      fields,
+		KeyFormat:   keyFormat,
 	}
 
 	tmpl, err := template.New("redis_code").Parse(codeTemplate)
@@ -122,43 +55,6 @@ func GenerateRedisCode(gen *protogen.Plugin, file *protogen.File, msg *protogen.
 	}
 
 	return buf.Bytes(), nil
-}
-
-// resolveMethodPrefixes 为集合字段确定元素级方法名的前缀。
-// 元素方法（Get<F>/Set<F>/Del<F>/Append<F>/Get<F>All/...）与既有方法 GetFields/SetFields
-// 以及同消息其他集合字段的方法共享命名空间，冲突时按 protoc-gen-go 惯例追加 X 消歧。
-func resolveMethodPrefixes(fields []FieldInfo) {
-	taken := map[string]bool{"GetFields": true, "SetFields": true}
-	for i := range fields {
-		if fields[i].Kind == FieldPlain {
-			continue
-		}
-		prefix := fields[i].Name
-		for {
-			names := []string{
-				"Get" + prefix, "Set" + prefix, "Del" + prefix,
-				"Get" + prefix + "All", "Set" + prefix + "All", "Del" + prefix + "All",
-			}
-			if fields[i].Kind == FieldSlice {
-				names = append(names, "Append"+prefix)
-			}
-			conflict := false
-			for _, n := range names {
-				if taken[n] {
-					conflict = true
-					break
-				}
-			}
-			if !conflict {
-				for _, n := range names {
-					taken[n] = true
-				}
-				fields[i].MethodPrefix = prefix
-				break
-			}
-			prefix += "X"
-		}
-	}
 }
 
 // resolveFieldTypeNames 为每个 message 确定"字段编号类型"的名字（默认 Field<MessageName>）。
@@ -204,7 +100,7 @@ func resolveFieldTypeNames(messages []*protogen.Message) map[*protogen.Message]s
 func GenerateRedisCodeHeadWithEnums(file *protogen.File) ([]byte, error) {
 	enums := collectFileEnums(file)
 
-	needProto, needMath, needStrconv, needSort := scanImports(file)
+	needProto, needMath, needStrconv := scanImports(file)
 	imports := []string{
 		"fmt",
 		"github.com/gomodule/redigo/redis",
@@ -214,9 +110,6 @@ func GenerateRedisCodeHeadWithEnums(file *protogen.File) ([]byte, error) {
 	}
 	if needMath {
 		imports = append(imports, "math")
-	}
-	if needSort {
-		imports = append(imports, "sort")
 	}
 	sort.Strings(imports)
 
@@ -298,8 +191,8 @@ type fieldType struct {
 // fieldTypeFor 计算字段的存储类型信息。
 // message/enum 类型一律经 protogen 解析：同包直接用名字，
 // 跨包自动带包前缀并登记 import（由 protogen 在生成文件时统一插入）。
-// 集合字段（map/repeated）按元素级存储设计：元素类型单独解析，
-// 标量/枚举/bytes 元素直接存储，message 元素单元素 protobuf 序列化。
+// 集合字段（map/repeated）整体 protobuf 序列化：元素类型单独解析，
+// 供字段级 MarshalRedisProto<Field>/UnmarshalRedisProto<Field> 与整体编解码使用。
 func fieldTypeFor(gen *protogen.Plugin, g *protogen.GeneratedFile, f *protogen.Field) fieldType {
 	if f.Desc.Cardinality() == protoreflect.Repeated {
 		if f.Desc.IsMap() {
@@ -344,7 +237,7 @@ func fieldTypeFor(gen *protogen.Plugin, g *protogen.GeneratedFile, f *protogen.F
 	}
 }
 
-// elemTypeFor 解析集合元素类型：标量/枚举/bytes 直接存储，message 单元素 protobuf 序列化。
+// elemTypeFor 解析集合元素类型：标量/枚举/bytes 与 message 元素统一按 protobuf wire format 编码。
 func elemTypeFor(gen *protogen.Plugin, g *protogen.GeneratedFile, desc protoreflect.FieldDescriptor) (elemType string, isMsg, isEnum bool) {
 	switch desc.Kind() {
 	case protoreflect.MessageKind:
@@ -418,29 +311,24 @@ func mapKeyType(k protoreflect.Kind) string {
 
 // scanImports 扫描文件中全部字段（含嵌套 message，跳过 map entry），
 // 判断生成代码需要哪些 stdlib import。
-// needProto：存在 message 类型字段（plain / map 值 / repeated 元素），
+// needProto：存在 message 或集合字段（map/repeated 整体 protobuf 序列化），
 // 需要生成 protobuf wire 辅助函数与每个 message 的 Marshal/Unmarshal 方法；
-// needMath：存在 float 字段且文件需要生成 marshaler（编码需要 math.Float32bits/Float64bits）；
-// strconv：集合下标、非 string map 键、数值/枚举直存字段的解析；sort：repeated 整体读回按下标排序。
-func scanImports(file *protogen.File) (needProto, needMath, needStrconv, needSort bool) {
+// needMath：存在 float 字段（含集合元素）且文件需要生成 marshaler（编码需要 math.Float32bits/Float64bits）；
+// needStrconv：plain 数值/枚举字段以十进制字符串直存，读取解析需要 strconv。
+func scanImports(file *protogen.File) (needProto, needMath, needStrconv bool) {
 	walkMessages(file.Messages, func(m *protogen.Message) {
 		if m.Desc.IsMapEntry() {
 			return
 		}
 		for _, field := range m.Fields {
 			if field.Desc.Cardinality() == protoreflect.Repeated {
+				// 集合字段整体 protobuf wire format 序列化
+				needProto = true
+				k := field.Desc.Kind()
 				if field.Desc.IsMap() {
-					needProto = needProto || field.Desc.MapValue().Kind() == protoreflect.MessageKind
-					needMath = needMath || field.Desc.MapValue().Kind() == protoreflect.FloatKind ||
-						field.Desc.MapValue().Kind() == protoreflect.DoubleKind
-					needStrconv = needStrconv || field.Desc.MapKey().Kind() != protoreflect.StringKind
-				} else {
-					needProto = needProto || field.Desc.Kind() == protoreflect.MessageKind
-					needMath = needMath || field.Desc.Kind() == protoreflect.FloatKind ||
-						field.Desc.Kind() == protoreflect.DoubleKind
-					needStrconv = true
-					needSort = true
+					k = field.Desc.MapValue().Kind()
 				}
+				needMath = needMath || k == protoreflect.FloatKind || k == protoreflect.DoubleKind
 				continue
 			}
 			switch field.Desc.Kind() {
@@ -454,8 +342,8 @@ func scanImports(file *protogen.File) (needProto, needMath, needStrconv, needSor
 			}
 		}
 	})
-	// 没有 message 字段就不会生成 marshaler，math 只随 marshaler 一起引入
-	return needProto, needProto && needMath, needStrconv, needSort
+	// 没有 message/集合字段就不会生成 marshaler，math 只随 marshaler 一起引入
+	return needProto, needProto && needMath, needStrconv
 }
 
 // collectFileEnums 收集本文件声明的全部枚举（含嵌套在 message 里的），按名字排序。

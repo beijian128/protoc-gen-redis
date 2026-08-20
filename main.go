@@ -31,6 +31,16 @@ func main() {
 func run(gen *protogen.Plugin, keyFormat string) error {
 	gen.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 
+	// 先校验约定（message 命名 DB 前缀、顶层字段不得直接定义 repeated/map），违规直接报错
+	for _, f := range gen.Files {
+		if !f.Generate {
+			continue
+		}
+		if err := generator.ValidateConventions(f); err != nil {
+			return fmt.Errorf("%s: %v", f.Desc.Name(), err)
+		}
+	}
+
 	for _, f := range gen.Files {
 		if !f.Generate {
 			continue

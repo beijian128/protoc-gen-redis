@@ -30,7 +30,20 @@ func field(name string, number int32, typ descriptorpb.FieldDescriptorProto_Type
 	return f
 }
 
-// userFileDescriptor 与 proto/user.proto 一一对应。
+// mapEntry 构造 map 字段必需的合成 entry message（map_entry=true）。
+func mapEntry(name string, keyTyp, valTyp descriptorpb.FieldDescriptorProto_Type, valTypeName string) *descriptorpb.DescriptorProto {
+	e := &descriptorpb.DescriptorProto{
+		Name:    proto.String(name),
+		Options: &descriptorpb.MessageOptions{MapEntry: proto.Bool(true)},
+		Field: []*descriptorpb.FieldDescriptorProto{
+			field("key", 1, keyTyp, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			field("value", 2, valTyp, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, valTypeName),
+		},
+	}
+	return e
+}
+
+// userFileDescriptor 与 proto/user.proto 一一对应（遵守约定：DB 前缀 + 集合字段 message 包裹）。
 func userFileDescriptor() *descriptorpb.FileDescriptorProto {
 	return &descriptorpb.FileDescriptorProto{
 		Name:    proto.String("proto/user.proto"),
@@ -67,7 +80,7 @@ func userFileDescriptor() *descriptorpb.FileDescriptorProto {
 
 func userBaseInfoDescriptor() *descriptorpb.DescriptorProto {
 	return &descriptorpb.DescriptorProto{
-		Name: proto.String("UserBaseInfo"),
+		Name: proto.String("DBUserBaseInfo"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			field("user_id", 1, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			field("username", 2, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
@@ -76,20 +89,20 @@ func userBaseInfoDescriptor() *descriptorpb.DescriptorProto {
 			field("level", 5, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			field("exp", 6, descriptorpb.FieldDescriptorProto_TYPE_INT64, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			field("balance", 7, descriptorpb.FieldDescriptorProto_TYPE_FLOAT, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
-			field("friends", 8, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
-			field("settings", 9, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.UserBaseInfo.SettingsEntry"),
+			field("friends", 8, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.DBUserBaseInfo.DBFriends"),
+			field("settings", 9, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.DBUserBaseInfo.DBSettings"),
 			field("login_source", 10, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.LoginSource"),
-			field("listint32", 11, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
-			field("weapons", 12, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.Weapon"),
-			field("weapon", 13, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.Weapon"),
-			field("weaponMap", 14, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.UserBaseInfo.WeaponMapEntry"),
+			field("int32_list", 11, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.DBUserBaseInfo.DBInt32List"),
+			field("weapons", 12, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.DBUserBaseInfo.DBWeapons"),
+			field("weapon", 13, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.DBWeapon"),
+			field("weapon_map", 14, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.DBUserBaseInfo.DBWeaponMap"),
 			field("coin", 15, descriptorpb.FieldDescriptorProto_TYPE_UINT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			field("gem", 16, descriptorpb.FieldDescriptorProto_TYPE_UINT64, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			field("vip", 17, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			field("score", 18, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			field("token", 19, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
-			field("profile", 20, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.UserBaseInfo.Profile"),
-			field("vip_level", 21, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.UserBaseInfo.VipLevel"),
+			field("profile", 20, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.DBUserBaseInfo.DBProfile"),
+			field("vip_level", 21, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.DBUserBaseInfo.VipLevel"),
 		},
 		EnumType: []*descriptorpb.EnumDescriptorProto{
 			{
@@ -103,23 +116,43 @@ func userBaseInfoDescriptor() *descriptorpb.DescriptorProto {
 		},
 		NestedType: []*descriptorpb.DescriptorProto{
 			{
-				Name:    proto.String("SettingsEntry"),
-				Options: &descriptorpb.MessageOptions{MapEntry: proto.Bool(true)},
+				Name: proto.String("DBFriends"),
 				Field: []*descriptorpb.FieldDescriptorProto{
-					field("key", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
-					field("value", 2, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					field("items", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
 				},
 			},
 			{
-				Name:    proto.String("WeaponMapEntry"),
-				Options: &descriptorpb.MessageOptions{MapEntry: proto.Bool(true)},
+				Name: proto.String("DBSettings"),
 				Field: []*descriptorpb.FieldDescriptorProto{
-					field("key", 1, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
-					field("value", 2, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".user.Weapon"),
+					field("kv", 1, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.DBUserBaseInfo.DBSettings.KvEntry"),
+				},
+				NestedType: []*descriptorpb.DescriptorProto{
+					mapEntry("KvEntry", descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_TYPE_STRING, ""),
 				},
 			},
 			{
-				Name: proto.String("Profile"),
+				Name: proto.String("DBInt32List"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					field("items", 1, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+				},
+			},
+			{
+				Name: proto.String("DBWeapons"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					field("items", 1, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.DBWeapon"),
+				},
+			},
+			{
+				Name: proto.String("DBWeaponMap"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					field("items", 1, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.DBUserBaseInfo.DBWeaponMap.ItemsEntry"),
+				},
+				NestedType: []*descriptorpb.DescriptorProto{
+					mapEntry("ItemsEntry", descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, ".user.DBWeapon"),
+				},
+			},
+			{
+				Name: proto.String("DBProfile"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					field("nickname", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 					field("age", 2, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
@@ -131,7 +164,7 @@ func userBaseInfoDescriptor() *descriptorpb.DescriptorProto {
 
 func weaponDescriptor() *descriptorpb.DescriptorProto {
 	return &descriptorpb.DescriptorProto{
-		Name: proto.String("Weapon"),
+		Name: proto.String("DBWeapon"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			field("name", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			field("damage", 2, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
@@ -141,7 +174,8 @@ func weaponDescriptor() *descriptorpb.DescriptorProto {
 }
 
 // extraFileDescriptor 覆盖此前类型映射的漏洞场景：
-// 跨包引用、嵌套 message、嵌套枚举、repeated 枚举/bytes、map 值为枚举。
+// 跨包引用、嵌套 message、嵌套枚举、repeated 枚举/bytes、map 值为枚举、
+// 字段与嵌套 message 同名时的类型名 X 消歧（db_inner 字段 + DBInner）。
 func extraFileDescriptor() *descriptorpb.FileDescriptorProto {
 	return &descriptorpb.FileDescriptorProto{
 		Name:    proto.String("extra.proto"),
@@ -161,15 +195,16 @@ func extraFileDescriptor() *descriptorpb.FileDescriptorProto {
 		},
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("ExtraMsg"),
+				Name: proto.String("DBExtraMsg"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					field("kind", 1, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.ExtraKind"),
-					field("kinds", 2, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".extra.ExtraKind"),
-					field("blobs", 3, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
-					field("kind_map", 4, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".extra.ExtraMsg.KindMapEntry"),
-					field("inner", 5, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.ExtraMsg.Inner"),
-					field("inners", 6, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".extra.ExtraMsg.Inner"),
-					field("state", 7, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.ExtraMsg.State"),
+					field("kinds", 2, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.DBExtraMsg.DBExtraKinds"),
+					field("blobs", 3, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.DBExtraMsg.DBExtraBlobs"),
+					field("kind_map", 4, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.DBExtraMsg.DBExtraKindMap"),
+					field("inner", 5, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.DBExtraMsg.DBInner"),
+					field("dBInner", 6, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.DBExtraMsg.DBInner"),
+					field("inners", 7, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.DBExtraMsg.DBExtraInners"),
+					field("state", 8, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.DBExtraMsg.State"),
 				},
 				EnumType: []*descriptorpb.EnumDescriptorProto{
 					{
@@ -181,15 +216,34 @@ func extraFileDescriptor() *descriptorpb.FileDescriptorProto {
 				},
 				NestedType: []*descriptorpb.DescriptorProto{
 					{
-						Name:    proto.String("KindMapEntry"),
-						Options: &descriptorpb.MessageOptions{MapEntry: proto.Bool(true)},
+						Name: proto.String("DBExtraKinds"),
 						Field: []*descriptorpb.FieldDescriptorProto{
-							field("key", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
-							field("value", 2, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.ExtraKind"),
+							field("items", 1, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".extra.ExtraKind"),
 						},
 					},
 					{
-						Name: proto.String("Inner"),
+						Name: proto.String("DBExtraBlobs"),
+						Field: []*descriptorpb.FieldDescriptorProto{
+							field("items", 1, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+						},
+					},
+					{
+						Name: proto.String("DBExtraKindMap"),
+						Field: []*descriptorpb.FieldDescriptorProto{
+							field("kv", 1, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".extra.DBExtraMsg.DBExtraKindMap.KvEntry"),
+						},
+						NestedType: []*descriptorpb.DescriptorProto{
+							mapEntry("KvEntry", descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_TYPE_ENUM, ".extra.ExtraKind"),
+						},
+					},
+					{
+						Name: proto.String("DBExtraInners"),
+						Field: []*descriptorpb.FieldDescriptorProto{
+							field("items", 1, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".extra.DBExtraMsg.DBInner"),
+						},
+					},
+					{
+						Name: proto.String("DBInner"),
 						Field: []*descriptorpb.FieldDescriptorProto{
 							field("x", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 						},
@@ -205,7 +259,7 @@ func userFileWithExtraRef() *descriptorpb.FileDescriptorProto {
 	f := proto.Clone(userFileDescriptor()).(*descriptorpb.FileDescriptorProto)
 	f.Dependency = []string{"extra.proto"}
 	f.MessageType[0].Field = append(f.MessageType[0].Field,
-		field("extra_ref", 22, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.ExtraMsg"))
+		field("extra_ref", 22, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".extra.DBExtraMsg"))
 	return f
 }
 
@@ -236,6 +290,28 @@ func runPlugin(t *testing.T, files []*descriptorpb.FileDescriptorProto, paramete
 	return resp
 }
 
+// pluginError 运行插件并返回错误文本（校验失败等场景用），无错误时返回 ""。
+func pluginError(t *testing.T, files []*descriptorpb.FileDescriptorProto) string {
+	t.Helper()
+	names := make([]string, 0, len(files))
+	for _, f := range files {
+		names = append(names, f.GetName())
+	}
+	req := &pluginpb.CodeGeneratorRequest{
+		FileToGenerate: names,
+		Parameter:      proto.String(""),
+		ProtoFile:      files,
+	}
+	gen, err := protogen.Options{}.New(req)
+	if err != nil {
+		return err.Error()
+	}
+	if err := run(gen, generator.DefaultKeyFormat); err != nil {
+		return err.Error()
+	}
+	return gen.Response().GetError()
+}
+
 func fileByName(t *testing.T, resp *pluginpb.CodeGeneratorResponse, name string) string {
 	t.Helper()
 	for _, f := range resp.GetFile() {
@@ -259,6 +335,45 @@ func containsCode(content, want string) bool {
 	return strings.Contains(strings.Join(strings.Fields(content), " "), want)
 }
 
+// ---------- 约定校验测试 ----------
+
+// TestValidateConventions 校验约定：message 必须 DB 前缀、顶层 message 不得直接定义 repeated/map。
+// 合规描述符（userFileDescriptor）能正常生成，由其余测试覆盖。
+func TestValidateConventions(t *testing.T) {
+	// 违规 1：message 缺少 DB 前缀
+	f := proto.Clone(userFileDescriptor()).(*descriptorpb.FileDescriptorProto)
+	f.MessageType[0].Name = proto.String("UserBaseInfo")
+	err := pluginError(t, []*descriptorpb.FileDescriptorProto{f})
+	if !strings.Contains(err, "UserBaseInfo") || !strings.Contains(err, "DB") || !strings.Contains(err, "DBUserBaseInfo") {
+		t.Errorf("缺少 DB 前缀应报错并给出建议名, got %q", err)
+	}
+
+	// 违规 2：顶层 message 直接定义 repeated 字段
+	f2 := proto.Clone(userFileDescriptor()).(*descriptorpb.FileDescriptorProto)
+	f2.MessageType[0].Field = append(f2.MessageType[0].Field,
+		field("bad_list", 30, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""))
+	err = pluginError(t, []*descriptorpb.FileDescriptorProto{f2})
+	if !strings.Contains(err, "bad_list") || !strings.Contains(err, "repeated/map") {
+		t.Errorf("顶层 repeated 字段应报错并指明字段名, got %q", err)
+	}
+
+	// 违规 3：顶层 message 直接定义 map 字段
+	f3 := proto.Clone(userFileDescriptor()).(*descriptorpb.FileDescriptorProto)
+	f3.MessageType[0].NestedType = append(f3.MessageType[0].NestedType,
+		mapEntry("BadMapEntry", descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_TYPE_STRING, ""))
+	f3.MessageType[0].Field = append(f3.MessageType[0].Field,
+		field("bad_map", 31, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".user.DBUserBaseInfo.BadMapEntry"))
+	err = pluginError(t, []*descriptorpb.FileDescriptorProto{f3})
+	if !strings.Contains(err, "bad_map") || !strings.Contains(err, "repeated/map") {
+		t.Errorf("顶层 map 字段应报错并指明字段名, got %q", err)
+	}
+
+	// 嵌套 message 内的集合字段不违规（包裹 message 是约定的写法）
+	if err := pluginError(t, []*descriptorpb.FileDescriptorProto{userFileDescriptor()}); err != "" {
+		t.Errorf("合规描述符不应报错, got %q", err)
+	}
+}
+
 // ---------- 测试用例 ----------
 
 // TestGenerateUserProtoGolden 用与 proto/user.proto 等价的描述符生成代码，
@@ -279,48 +394,55 @@ func TestGenerateUserProtoGolden(t *testing.T) {
 	for _, want := range []string{
 		"type Gender int32",
 		"Gender_GENDER_MALE Gender",
-		"FieldUserBaseInfo_UserId FieldUserBaseInfo = 1", // user_id -> UserId
+		"FieldDBUserBaseInfo_UserId FieldDBUserBaseInfo = 1", // user_id -> UserId
 		"UserId int32",
 		"AvatarUrl string",
 		"LoginSource LoginSource",
-		"Settings map[string]string",
-		"Weapons []Weapon",
-		"WeaponMap map[int32]Weapon",
+		"Friends DBUserBaseInfo_DBFriends",   // 集合字段：message 包裹
+		"Settings DBUserBaseInfo_DBSettings", // 集合字段：message 包裹
+		"Int32List DBUserBaseInfo_DBInt32List",
+		"Weapons DBUserBaseInfo_DBWeapons",
+		"WeaponMap DBUserBaseInfo_DBWeaponMap",
 		"Coin uint32",
 		"Gem uint64",
 		"Vip bool",
 		"Score float64",
 		"Token []byte",
-		"Profile UserBaseInfo_Profile",
-		"VipLevel UserBaseInfo_VipLevel",
-		"UserBaseInfo_VIP_1 UserBaseInfo_VipLevel", // 嵌套枚举常量（message 名前缀）
-		"type UserBaseInfo_Profile struct",         // 嵌套 message 生成代码
+		"Profile DBUserBaseInfo_DBProfile",
+		"VipLevel DBUserBaseInfo_VipLevel",
+		"DBUserBaseInfo_VIP_1 DBUserBaseInfo_VipLevel", // 嵌套枚举常量（message 名前缀）
+		"type DBUserBaseInfo_DBProfile struct",         // 嵌套 message 生成代码
 		"Nickname string",
-		"FieldUserBaseInfo_Profile FieldUserBaseInfo = 20", // 父字段常量名保持不变
-		"type FieldUserBaseInfo_ProfileX uint32",           // 冲突的嵌套类型名加 X 消歧
-		"FieldUserBaseInfo_ProfileX_Nickname FieldUserBaseInfo_ProfileX = 1",
+		"FieldDBUserBaseInfo_Profile FieldDBUserBaseInfo = 20",
+		"type DBUserBaseInfo_DBFriends struct", // 集合字段包裹 message
+		"Items []string",
+		"Kv map[string]string",
+		"Items map[int32]DBWeapon",
+		"type DBWeapon struct",
 		// protobuf wire format 序列化（语言无关）
-		"func (p *UserBaseInfo) MarshalRedisProto() ([]byte, error)",
-		"func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error",
-		"func (p *UserBaseInfo_Profile) MarshalRedisProto() ([]byte, error)",
-		"func (p *Weapon) UnmarshalRedisProto(b []byte) error",
-		"redisProtoAppendTag(buf, 7, 5)",            // float32 -> fixed32
-		"redisProtoAppendTag(buf, 18, 1)",           // float64 -> fixed64
+		"func (p *DBUserBaseInfo) MarshalRedisProto() ([]byte, error)",
+		"func (p *DBUserBaseInfo) UnmarshalRedisProto(b []byte) error",
+		"func (p *DBUserBaseInfo_DBProfile) MarshalRedisProto() ([]byte, error)",
+		"func (p *DBWeapon) UnmarshalRedisProto(b []byte) error",
+		"redisProtoAppendTag(buf, 7, 5)",             // float32 -> fixed32
+		"redisProtoAppendTag(buf, 18, 1)",            // float64 -> fixed64
 		"redisProtoAppendVarint(buf, uint64(p.Gem))", // uint64 varint
-		`redisProtoAppendLen(entry, []byte(k))`,     // map 键 -> length-delimited
-		"p.WeaponMap[k] = val",
-		// 集合字段元素级方法（方案 A）
-		"func (p *UserBaseInfo) SetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string, v string) error",
-		"func (p *UserBaseInfo) GetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (string, bool, error)",
-		"func (p *UserBaseInfo) DelSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (bool, error)",
-		"func (p *UserBaseInfo) GetSettingsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error",
-		"func (p *UserBaseInfo) AppendFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, v string) (int, error)",
-		"func (p *UserBaseInfo) SetWeaponMap(conn redis.Conn, REDBKey uint32, ida, idb uint64, k int32, v Weapon) error",
-		`"EVAL", script, 1, key, 8`,
+		`redisProtoAppendLen(entry, []byte(k))`,      // map 键 -> length-delimited
+		"p.Kv[k] = val",
+		// 包裹 message 内裸集合字段的字段级序列化方法
+		"func (p *DBUserBaseInfo_DBSettings) MarshalRedisProtoKv() ([]byte, error)",
+		"func (p *DBUserBaseInfo_DBFriends) UnmarshalRedisProtoItems(b []byte) error",
+		"p.Settings.UnmarshalRedisProto(val)", // GetFields message 字段整体反序列化
+		"p.Weapons.MarshalRedisProto()",       // SetFields message 字段整体序列化
 		`fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)`,
 	} {
 		if !containsCode(content, want) {
 			t.Errorf("生成内容缺少 %q", want)
+		}
+	}
+	for _, banned := range []string{"EVAL", "HSCAN", "AppendFriends", "SetSettingsAll"} {
+		if containsCode(content, banned) {
+			t.Errorf("生成内容不应包含 %q（元素级操作已移除）", banned)
 		}
 	}
 
@@ -344,7 +466,7 @@ func TestGenerateUserProtoGolden(t *testing.T) {
 
 // TestNestedCrossPackageAndTypeMapping 覆盖：
 // 嵌套 message/枚举生成代码、跨包引用自动加包前缀并登记 import、
-// repeated 枚举/bytes、map 值为枚举等此前会生成非法代码的场景。
+// repeated 枚举/bytes、map 值为枚举、字段与嵌套 message 同名时的 X 消歧。
 func TestNestedCrossPackageAndTypeMapping(t *testing.T) {
 	// 依赖文件必须先于引用它的文件（拓扑序），与 protoc 的请求一致
 	files := []*descriptorpb.FileDescriptorProto{extraFileDescriptor(), userFileWithExtraRef()}
@@ -357,8 +479,8 @@ func TestNestedCrossPackageAndTypeMapping(t *testing.T) {
 
 	// 跨包引用：类型带包前缀，且只 import 不重复声明枚举
 	for _, want := range []string{
-		"ExtraRef extra.ExtraMsg",
-		"extra.ExtraMsg",
+		"ExtraRef extra.DBExtraMsg",
+		"extra.DBExtraMsg",
 		`"github.com/beijian128/protoc-gen-redis/extra"`,
 		"type Gender int32", // 本文件的枚举正常声明
 	} {
@@ -372,14 +494,19 @@ func TestNestedCrossPackageAndTypeMapping(t *testing.T) {
 
 	// 嵌套 message / 嵌套枚举 / 类型映射修复点
 	for _, want := range []string{
-		"type ExtraMsg_Inner struct",         // 嵌套 message 生成代码
-		"Inners []ExtraMsg_Inner",            // repeated 嵌套 message
-		"type ExtraMsg_State int32",          // 嵌套枚举声明
-		"ExtraMsg_STATE_NONE ExtraMsg_State", // 嵌套枚举常量（message 名前缀）
-		"Kinds []ExtraKind",                  // repeated 枚举（此前会生成 []enum）
-		"Blobs [][]byte",                     // repeated bytes（此前会生成 []bytes）
-		"KindMap map[string]ExtraKind",       // map 值为枚举（此前会生成 map[string]enum）
-		"State ExtraMsg_State",
+		"type DBExtraMsg_DBInner struct",         // 嵌套 message 生成代码
+		"Inners DBExtraMsg_DBExtraInners",        // repeated 嵌套 message（包裹）
+		"type DBExtraMsg_State int32",            // 嵌套枚举声明
+		"DBExtraMsg_STATE_NONE DBExtraMsg_State", // 嵌套枚举常量（message 名前缀）
+		"Items []ExtraKind",                      // repeated 枚举（此前会生成 []enum）
+		"Items [][]byte",                         // repeated bytes（此前会生成 []bytes）
+		"Kv map[string]ExtraKind",                // map 值为枚举（此前会生成 map[string]enum）
+		"State DBExtraMsg_State",
+		"DBInner DBExtraMsg_DBInner", // dBInner 字段
+		// 字段 dBInner 与嵌套 message DBInner 同名：类型名加 X 消歧
+		"type FieldDBExtraMsg_DBInnerX uint32",
+		"FieldDBExtraMsg_DBInnerX_X FieldDBExtraMsg_DBInnerX = 1",
+		"FieldDBExtraMsg_DBInner FieldDBExtraMsg = 6",
 	} {
 		if !containsCode(extra, want) {
 			t.Errorf("extra.redis.go 缺少 %q", want)

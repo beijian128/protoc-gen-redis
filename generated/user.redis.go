@@ -6,8 +6,16 @@ import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"math"
-	"sort"
 	"strconv"
+)
+
+// Enum DBUserBaseInfo_VipLevel
+type DBUserBaseInfo_VipLevel int32
+
+const (
+	DBUserBaseInfo_VIP_NONE DBUserBaseInfo_VipLevel = 0
+	DBUserBaseInfo_VIP_1    DBUserBaseInfo_VipLevel = 1
+	DBUserBaseInfo_VIP_2    DBUserBaseInfo_VipLevel = 2
 )
 
 // Enum Gender
@@ -27,15 +35,6 @@ const (
 	LoginSource_SOURCE_APP          LoginSource = 1
 	LoginSource_SOURCE_H5           LoginSource = 2
 	LoginSource_SOURCE_MINI_PROGRAM LoginSource = 3
-)
-
-// Enum UserBaseInfo_VipLevel
-type UserBaseInfo_VipLevel int32
-
-const (
-	UserBaseInfo_VIP_NONE UserBaseInfo_VipLevel = 0
-	UserBaseInfo_VIP_1    UserBaseInfo_VipLevel = 1
-	UserBaseInfo_VIP_2    UserBaseInfo_VipLevel = 2
 )
 
 // --- protobuf wire format 辅助函数（语言无关序列化，规则见 https://protobuf.dev/programming-guides/encoding/） ---
@@ -141,101 +140,101 @@ func redisProtoSkip(b []byte, wire uint64) (int, error) {
 	}
 }
 
-// --- Message: UserBaseInfo ---
+// --- Message: DBUserBaseInfo ---
 
-// FieldUserBaseInfo 用于标识 Redis Hash 中的字段编号
-type FieldUserBaseInfo uint32
+// FieldDBUserBaseInfo 用于标识 Redis Hash 中的字段编号
+type FieldDBUserBaseInfo uint32
 
-// FieldUserBaseInfo_UserId 是字段 UserId 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_UserId FieldUserBaseInfo = 1
+// FieldDBUserBaseInfo_UserId 是字段 UserId 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_UserId FieldDBUserBaseInfo = 1
 
-// FieldUserBaseInfo_Username 是字段 Username 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Username FieldUserBaseInfo = 2
+// FieldDBUserBaseInfo_Username 是字段 Username 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Username FieldDBUserBaseInfo = 2
 
-// FieldUserBaseInfo_AvatarUrl 是字段 AvatarUrl 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_AvatarUrl FieldUserBaseInfo = 3
+// FieldDBUserBaseInfo_AvatarUrl 是字段 AvatarUrl 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_AvatarUrl FieldDBUserBaseInfo = 3
 
-// FieldUserBaseInfo_Gender 是字段 Gender 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Gender FieldUserBaseInfo = 4
+// FieldDBUserBaseInfo_Gender 是字段 Gender 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Gender FieldDBUserBaseInfo = 4
 
-// FieldUserBaseInfo_Level 是字段 Level 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Level FieldUserBaseInfo = 5
+// FieldDBUserBaseInfo_Level 是字段 Level 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Level FieldDBUserBaseInfo = 5
 
-// FieldUserBaseInfo_Exp 是字段 Exp 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Exp FieldUserBaseInfo = 6
+// FieldDBUserBaseInfo_Exp 是字段 Exp 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Exp FieldDBUserBaseInfo = 6
 
-// FieldUserBaseInfo_Balance 是字段 Balance 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Balance FieldUserBaseInfo = 7
+// FieldDBUserBaseInfo_Balance 是字段 Balance 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Balance FieldDBUserBaseInfo = 7
 
-// FieldUserBaseInfo_Friends 是字段 Friends 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Friends FieldUserBaseInfo = 8
+// FieldDBUserBaseInfo_Friends 是字段 Friends 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Friends FieldDBUserBaseInfo = 8
 
-// FieldUserBaseInfo_Settings 是字段 Settings 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Settings FieldUserBaseInfo = 9
+// FieldDBUserBaseInfo_Settings 是字段 Settings 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Settings FieldDBUserBaseInfo = 9
 
-// FieldUserBaseInfo_LoginSource 是字段 LoginSource 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_LoginSource FieldUserBaseInfo = 10
+// FieldDBUserBaseInfo_LoginSource 是字段 LoginSource 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_LoginSource FieldDBUserBaseInfo = 10
 
-// FieldUserBaseInfo_Listint32 是字段 Listint32 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Listint32 FieldUserBaseInfo = 11
+// FieldDBUserBaseInfo_Int32List 是字段 Int32List 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Int32List FieldDBUserBaseInfo = 11
 
-// FieldUserBaseInfo_Weapons 是字段 Weapons 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Weapons FieldUserBaseInfo = 12
+// FieldDBUserBaseInfo_Weapons 是字段 Weapons 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Weapons FieldDBUserBaseInfo = 12
 
-// FieldUserBaseInfo_Weapon 是字段 Weapon 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Weapon FieldUserBaseInfo = 13
+// FieldDBUserBaseInfo_Weapon 是字段 Weapon 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Weapon FieldDBUserBaseInfo = 13
 
-// FieldUserBaseInfo_WeaponMap 是字段 WeaponMap 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_WeaponMap FieldUserBaseInfo = 14
+// FieldDBUserBaseInfo_WeaponMap 是字段 WeaponMap 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_WeaponMap FieldDBUserBaseInfo = 14
 
-// FieldUserBaseInfo_Coin 是字段 Coin 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Coin FieldUserBaseInfo = 15
+// FieldDBUserBaseInfo_Coin 是字段 Coin 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Coin FieldDBUserBaseInfo = 15
 
-// FieldUserBaseInfo_Gem 是字段 Gem 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Gem FieldUserBaseInfo = 16
+// FieldDBUserBaseInfo_Gem 是字段 Gem 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Gem FieldDBUserBaseInfo = 16
 
-// FieldUserBaseInfo_Vip 是字段 Vip 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Vip FieldUserBaseInfo = 17
+// FieldDBUserBaseInfo_Vip 是字段 Vip 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Vip FieldDBUserBaseInfo = 17
 
-// FieldUserBaseInfo_Score 是字段 Score 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Score FieldUserBaseInfo = 18
+// FieldDBUserBaseInfo_Score 是字段 Score 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Score FieldDBUserBaseInfo = 18
 
-// FieldUserBaseInfo_Token 是字段 Token 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Token FieldUserBaseInfo = 19
+// FieldDBUserBaseInfo_Token 是字段 Token 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Token FieldDBUserBaseInfo = 19
 
-// FieldUserBaseInfo_Profile 是字段 Profile 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_Profile FieldUserBaseInfo = 20
+// FieldDBUserBaseInfo_Profile 是字段 Profile 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_Profile FieldDBUserBaseInfo = 20
 
-// FieldUserBaseInfo_VipLevel 是字段 VipLevel 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_VipLevel FieldUserBaseInfo = 21
+// FieldDBUserBaseInfo_VipLevel 是字段 VipLevel 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_VipLevel FieldDBUserBaseInfo = 21
 
-// FieldUserBaseInfoIDs 是所有字段编号常量的集合，类型为 []FieldUserBaseInfo
-var FieldUserBaseInfoIDs = []FieldUserBaseInfo{
-	FieldUserBaseInfo_UserId,
-	FieldUserBaseInfo_Username,
-	FieldUserBaseInfo_AvatarUrl,
-	FieldUserBaseInfo_Gender,
-	FieldUserBaseInfo_Level,
-	FieldUserBaseInfo_Exp,
-	FieldUserBaseInfo_Balance,
-	FieldUserBaseInfo_Friends,
-	FieldUserBaseInfo_Settings,
-	FieldUserBaseInfo_LoginSource,
-	FieldUserBaseInfo_Listint32,
-	FieldUserBaseInfo_Weapons,
-	FieldUserBaseInfo_Weapon,
-	FieldUserBaseInfo_WeaponMap,
-	FieldUserBaseInfo_Coin,
-	FieldUserBaseInfo_Gem,
-	FieldUserBaseInfo_Vip,
-	FieldUserBaseInfo_Score,
-	FieldUserBaseInfo_Token,
-	FieldUserBaseInfo_Profile,
-	FieldUserBaseInfo_VipLevel,
+// FieldDBUserBaseInfoIDs 是所有字段编号常量的集合，类型为 []FieldDBUserBaseInfo
+var FieldDBUserBaseInfoIDs = []FieldDBUserBaseInfo{
+	FieldDBUserBaseInfo_UserId,
+	FieldDBUserBaseInfo_Username,
+	FieldDBUserBaseInfo_AvatarUrl,
+	FieldDBUserBaseInfo_Gender,
+	FieldDBUserBaseInfo_Level,
+	FieldDBUserBaseInfo_Exp,
+	FieldDBUserBaseInfo_Balance,
+	FieldDBUserBaseInfo_Friends,
+	FieldDBUserBaseInfo_Settings,
+	FieldDBUserBaseInfo_LoginSource,
+	FieldDBUserBaseInfo_Int32List,
+	FieldDBUserBaseInfo_Weapons,
+	FieldDBUserBaseInfo_Weapon,
+	FieldDBUserBaseInfo_WeaponMap,
+	FieldDBUserBaseInfo_Coin,
+	FieldDBUserBaseInfo_Gem,
+	FieldDBUserBaseInfo_Vip,
+	FieldDBUserBaseInfo_Score,
+	FieldDBUserBaseInfo_Token,
+	FieldDBUserBaseInfo_Profile,
+	FieldDBUserBaseInfo_VipLevel,
 }
 
-// UserBaseInfo 提供针对 UserBaseInfo 消息的 Redis 存取操作
-type UserBaseInfo struct {
+// DBUserBaseInfo 提供针对 DBUserBaseInfo 消息的 Redis 存取操作
+type DBUserBaseInfo struct {
 	UserId int32
 
 	Username string
@@ -250,19 +249,19 @@ type UserBaseInfo struct {
 
 	Balance float32
 
-	Friends []string
+	Friends DBUserBaseInfo_DBFriends
 
-	Settings map[string]string
+	Settings DBUserBaseInfo_DBSettings
 
 	LoginSource LoginSource
 
-	Listint32 []int32
+	Int32List DBUserBaseInfo_DBInt32List
 
-	Weapons []Weapon
+	Weapons DBUserBaseInfo_DBWeapons
 
-	Weapon Weapon
+	Weapon DBWeapon
 
-	WeaponMap map[int32]Weapon
+	WeaponMap DBUserBaseInfo_DBWeaponMap
 
 	Coin uint32
 
@@ -274,21 +273,21 @@ type UserBaseInfo struct {
 
 	Token []byte
 
-	Profile UserBaseInfo_Profile
+	Profile DBUserBaseInfo_DBProfile
 
-	VipLevel UserBaseInfo_VipLevel
+	VipLevel DBUserBaseInfo_VipLevel
 }
 
-// NewUserBaseInfo 创建一个新的 UserBaseInfo 实例
-func NewUserBaseInfo() *UserBaseInfo {
-	return &UserBaseInfo{}
+// NewDBUserBaseInfo 创建一个新的 DBUserBaseInfo 实例
+func NewDBUserBaseInfo() *DBUserBaseInfo {
+	return &DBUserBaseInfo{}
 }
 
-// MarshalRedisProto 将 UserBaseInfo 序列化为 protobuf wire format 字节流。
+// MarshalRedisProto 将 DBUserBaseInfo 序列化为 protobuf wire format 字节流。
 // 字节流与语言无关：任何语言使用同一份 .proto 定义即可解析。
 // 编码遵循 proto3 语义：零值标量/空字符串/空 bytes 不编码，message 字段恒编码，
 // repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
-func (p *UserBaseInfo) MarshalRedisProto() ([]byte, error) {
+func (p *DBUserBaseInfo) MarshalRedisProto() ([]byte, error) {
 	var buf []byte
 
 	// 字段 UserId（tag 1）
@@ -346,24 +345,24 @@ func (p *UserBaseInfo) MarshalRedisProto() ([]byte, error) {
 
 	// 字段 Friends（tag 8）
 
-	for _, v := range p.Friends {
+	{
+		b, err := p.Friends.MarshalRedisProto()
+		if err != nil {
+			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Friends", err)
+		}
 		buf = redisProtoAppendTag(buf, 8, 2)
-		buf = redisProtoAppendLen(buf, []byte(v))
+		buf = redisProtoAppendLen(buf, b)
 	}
 
 	// 字段 Settings（tag 9）
 
-	for k, v := range p.Settings {
-		var entry []byte
-
-		entry = redisProtoAppendTag(entry, 1, 2)
-		entry = redisProtoAppendLen(entry, []byte(k))
-
-		entry = redisProtoAppendTag(entry, 2, 2)
-		entry = redisProtoAppendLen(entry, []byte(v))
-
+	{
+		b, err := p.Settings.MarshalRedisProto()
+		if err != nil {
+			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Settings", err)
+		}
 		buf = redisProtoAppendTag(buf, 9, 2)
-		buf = redisProtoAppendLen(buf, entry)
+		buf = redisProtoAppendLen(buf, b)
 	}
 
 	// 字段 LoginSource（tag 10）
@@ -374,18 +373,21 @@ func (p *UserBaseInfo) MarshalRedisProto() ([]byte, error) {
 		buf = redisProtoAppendVarint(buf, uint64(p.LoginSource))
 	}
 
-	// 字段 Listint32（tag 11）
+	// 字段 Int32List（tag 11）
 
-	// 枚举与整型元素（varint）
-	for _, v := range p.Listint32 {
-		buf = redisProtoAppendTag(buf, 11, 0)
-		buf = redisProtoAppendVarint(buf, uint64(v))
+	{
+		b, err := p.Int32List.MarshalRedisProto()
+		if err != nil {
+			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Int32List", err)
+		}
+		buf = redisProtoAppendTag(buf, 11, 2)
+		buf = redisProtoAppendLen(buf, b)
 	}
 
 	// 字段 Weapons（tag 12）
 
-	for _, v := range p.Weapons {
-		b, err := v.MarshalRedisProto()
+	{
+		b, err := p.Weapons.MarshalRedisProto()
 		if err != nil {
 			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Weapons", err)
 		}
@@ -406,21 +408,13 @@ func (p *UserBaseInfo) MarshalRedisProto() ([]byte, error) {
 
 	// 字段 WeaponMap（tag 14）
 
-	for k, v := range p.WeaponMap {
-		var entry []byte
-
-		entry = redisProtoAppendTag(entry, 1, 0)
-		entry = redisProtoAppendVarint(entry, uint64(k))
-
-		b, err := v.MarshalRedisProto()
+	{
+		b, err := p.WeaponMap.MarshalRedisProto()
 		if err != nil {
 			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "WeaponMap", err)
 		}
-		entry = redisProtoAppendTag(entry, 2, 2)
-		entry = redisProtoAppendLen(entry, b)
-
 		buf = redisProtoAppendTag(buf, 14, 2)
-		buf = redisProtoAppendLen(buf, entry)
+		buf = redisProtoAppendLen(buf, b)
 	}
 
 	// 字段 Coin（tag 15）
@@ -482,10 +476,10 @@ func (p *UserBaseInfo) MarshalRedisProto() ([]byte, error) {
 	return buf, nil
 }
 
-// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 UserBaseInfo。
+// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 DBUserBaseInfo。
 // 反序列化前会先重置自身；未知字段跳过，缺失字段保持零值（proto3 语义）。
-func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error {
-	*p = UserBaseInfo{}
+func (p *DBUserBaseInfo) UnmarshalRedisProto(b []byte) error {
+	*p = DBUserBaseInfo{}
 	for len(b) > 0 {
 		tag, n, err := redisProtoReadVarint(b)
 		if err != nil {
@@ -594,63 +588,23 @@ func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error {
 				return err
 			}
 			b = b[n:]
-			p.Friends = append(p.Friends, string(v))
+			if err := p.Friends.UnmarshalRedisProto(v); err != nil {
+				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Friends", err)
+			}
 
 		case 9: // Settings
 
 			if wire != 2 {
 				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Settings", wire)
 			}
-			entry, n, err := redisProtoReadBytes(b)
+			v, n, err := redisProtoReadBytes(b)
 			if err != nil {
 				return err
 			}
 			b = b[n:]
-			var k string
-			var val string
-			for len(entry) > 0 {
-				t2, m, err := redisProtoReadVarint(entry)
-				if err != nil {
-					return err
-				}
-				entry = entry[m:]
-				switch t2 >> 3 {
-				case 1: // map 键
-
-					if t2&7 != 2 {
-						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "Settings", t2&7)
-					}
-					payload, m, err := redisProtoReadBytes(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					k = string(payload)
-
-				case 2: // map 值
-
-					if t2&7 != 2 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "Settings", t2&7)
-					}
-					payload, m, err := redisProtoReadBytes(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					val = string(payload)
-
-				default:
-					m, err = redisProtoSkip(entry, t2&7)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-				}
+			if err := p.Settings.UnmarshalRedisProto(v); err != nil {
+				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Settings", err)
 			}
-			if p.Settings == nil {
-				p.Settings = make(map[string]string)
-			}
-			p.Settings[k] = val
 
 		case 10: // LoginSource
 
@@ -665,32 +619,18 @@ func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error {
 			b = b[n:]
 			p.LoginSource = LoginSource(v)
 
-		case 11: // Listint32
+		case 11: // Int32List
 
-			// 枚举与整型元素（varint，兼容 packed 编码）
-			if wire == 0 {
-				v, n, err := redisProtoReadVarint(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				p.Listint32 = append(p.Listint32, int32(v))
-			} else if wire == 2 {
-				payload, n, err := redisProtoReadBytes(b)
-				if err != nil {
-					return err
-				}
-				b = b[n:]
-				for len(payload) > 0 {
-					v, m, err := redisProtoReadVarint(payload)
-					if err != nil {
-						return err
-					}
-					payload = payload[m:]
-					p.Listint32 = append(p.Listint32, int32(v))
-				}
-			} else {
-				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Listint32", wire)
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Int32List", wire)
+			}
+			v, n, err := redisProtoReadBytes(b)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+			if err := p.Int32List.UnmarshalRedisProto(v); err != nil {
+				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Int32List", err)
 			}
 
 		case 12: // Weapons
@@ -703,11 +643,9 @@ func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error {
 				return err
 			}
 			b = b[n:]
-			var elem Weapon
-			if err := elem.UnmarshalRedisProto(v); err != nil {
+			if err := p.Weapons.UnmarshalRedisProto(v); err != nil {
 				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Weapons", err)
 			}
-			p.Weapons = append(p.Weapons, elem)
 
 		case 13: // Weapon
 
@@ -728,58 +666,14 @@ func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error {
 			if wire != 2 {
 				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "WeaponMap", wire)
 			}
-			entry, n, err := redisProtoReadBytes(b)
+			v, n, err := redisProtoReadBytes(b)
 			if err != nil {
 				return err
 			}
 			b = b[n:]
-			var k int32
-			var val Weapon
-			for len(entry) > 0 {
-				t2, m, err := redisProtoReadVarint(entry)
-				if err != nil {
-					return err
-				}
-				entry = entry[m:]
-				switch t2 >> 3 {
-				case 1: // map 键
-
-					if t2&7 != 0 {
-						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "WeaponMap", t2&7)
-					}
-					kv, m, err := redisProtoReadVarint(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					k = int32(kv)
-
-				case 2: // map 值
-
-					if t2&7 != 2 {
-						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "WeaponMap", t2&7)
-					}
-					payload, m, err := redisProtoReadBytes(entry)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-					if err := val.UnmarshalRedisProto(payload); err != nil {
-						return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "WeaponMap", err)
-					}
-
-				default:
-					m, err = redisProtoSkip(entry, t2&7)
-					if err != nil {
-						return err
-					}
-					entry = entry[m:]
-				}
+			if err := p.WeaponMap.UnmarshalRedisProto(v); err != nil {
+				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "WeaponMap", err)
 			}
-			if p.WeaponMap == nil {
-				p.WeaponMap = make(map[int32]Weapon)
-			}
-			p.WeaponMap[k] = val
 
 		case 15: // Coin
 
@@ -868,7 +762,7 @@ func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error {
 				return err
 			}
 			b = b[n:]
-			p.VipLevel = UserBaseInfo_VipLevel(v)
+			p.VipLevel = DBUserBaseInfo_VipLevel(v)
 
 		default:
 			n, err = redisProtoSkip(b, wire)
@@ -885,26 +779,26 @@ func (p *UserBaseInfo) UnmarshalRedisProto(b []byte) error {
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要读取的字段编号列表，如 FieldUserBaseInfo_Name, FieldUserBaseInfo_Age
+// fields: 要读取的字段编号列表，如 FieldDBUserBaseInfo_Name, FieldDBUserBaseInfo_Age
 //
-//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldUserBaseInfoIDs）
-//	集合字段（map/repeated）从元素级存储（<tag>:<key|index>）整体读回
-func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo) error {
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldDBUserBaseInfoIDs）
+//	集合字段（map/repeated）整体 protobuf 反序列化
+func (p *DBUserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldUserBaseInfoIDs
+		fieldsToUse = FieldDBUserBaseInfoIDs
 	}
 
-	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...（集合字段的返回值会被忽略）
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
 	args := []interface{}{key}
 	for _, fieldID := range fieldsToUse {
 		args = append(args, fieldID)
 	}
 
-	// 一次 HMGET 获取所有直存字段值
+	// 一次 HMGET 获取所有字段值
 	reply, err := conn.Do("HMGET", args...)
 	if err != nil {
 		return fmt.Errorf("HMGET 失败: %v", err)
@@ -921,7 +815,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUserBaseInfo_UserId:
+		case FieldDBUserBaseInfo_UserId:
 
 			// --- 直读字段: UserId ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -934,7 +828,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Username:
+		case FieldDBUserBaseInfo_Username:
 
 			// --- 直读字段: Username ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -943,7 +837,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_AvatarUrl:
+		case FieldDBUserBaseInfo_AvatarUrl:
 
 			// --- 直读字段: AvatarUrl ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -952,7 +846,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Gender:
+		case FieldDBUserBaseInfo_Gender:
 
 			// --- 直读字段: Gender ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -965,7 +859,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Level:
+		case FieldDBUserBaseInfo_Level:
 
 			// --- 直读字段: Level ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -978,7 +872,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Exp:
+		case FieldDBUserBaseInfo_Exp:
 
 			// --- 直读字段: Exp ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -991,7 +885,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Balance:
+		case FieldDBUserBaseInfo_Balance:
 
 			// --- 直读字段: Balance ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1004,21 +898,25 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Friends:
+		case FieldDBUserBaseInfo_Friends:
 
-			// --- 集合字段: Friends（元素级存储，整体读回）---
-			if err := p.GetFriendsAll(conn, REDBKey, ida, idb); err != nil {
-				return fmt.Errorf("读取字段 %s 失败: %v", "Friends", err)
+			// --- Protobuf 反序列化字段: Friends ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.Friends.UnmarshalRedisProto(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Friends", err)
+				}
 			}
 
-		case FieldUserBaseInfo_Settings:
+		case FieldDBUserBaseInfo_Settings:
 
-			// --- 集合字段: Settings（元素级存储，整体读回）---
-			if err := p.GetSettingsAll(conn, REDBKey, ida, idb); err != nil {
-				return fmt.Errorf("读取字段 %s 失败: %v", "Settings", err)
+			// --- Protobuf 反序列化字段: Settings ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.Settings.UnmarshalRedisProto(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Settings", err)
+				}
 			}
 
-		case FieldUserBaseInfo_LoginSource:
+		case FieldDBUserBaseInfo_LoginSource:
 
 			// --- 直读字段: LoginSource ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1031,21 +929,25 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Listint32:
+		case FieldDBUserBaseInfo_Int32List:
 
-			// --- 集合字段: Listint32（元素级存储，整体读回）---
-			if err := p.GetListint32All(conn, REDBKey, ida, idb); err != nil {
-				return fmt.Errorf("读取字段 %s 失败: %v", "Listint32", err)
+			// --- Protobuf 反序列化字段: Int32List ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.Int32List.UnmarshalRedisProto(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Int32List", err)
+				}
 			}
 
-		case FieldUserBaseInfo_Weapons:
+		case FieldDBUserBaseInfo_Weapons:
 
-			// --- 集合字段: Weapons（元素级存储，整体读回）---
-			if err := p.GetWeaponsAll(conn, REDBKey, ida, idb); err != nil {
-				return fmt.Errorf("读取字段 %s 失败: %v", "Weapons", err)
+			// --- Protobuf 反序列化字段: Weapons ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.Weapons.UnmarshalRedisProto(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Weapons", err)
+				}
 			}
 
-		case FieldUserBaseInfo_Weapon:
+		case FieldDBUserBaseInfo_Weapon:
 
 			// --- Protobuf 反序列化字段: Weapon ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1054,14 +956,16 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 				}
 			}
 
-		case FieldUserBaseInfo_WeaponMap:
+		case FieldDBUserBaseInfo_WeaponMap:
 
-			// --- 集合字段: WeaponMap（元素级存储，整体读回）---
-			if err := p.GetWeaponMapAll(conn, REDBKey, ida, idb); err != nil {
-				return fmt.Errorf("读取字段 %s 失败: %v", "WeaponMap", err)
+			// --- Protobuf 反序列化字段: WeaponMap ---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.WeaponMap.UnmarshalRedisProto(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "WeaponMap", err)
+				}
 			}
 
-		case FieldUserBaseInfo_Coin:
+		case FieldDBUserBaseInfo_Coin:
 
 			// --- 直读字段: Coin ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1074,7 +978,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Gem:
+		case FieldDBUserBaseInfo_Gem:
 
 			// --- 直读字段: Gem ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1087,7 +991,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Vip:
+		case FieldDBUserBaseInfo_Vip:
 
 			// --- 直读字段: Vip ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1100,7 +1004,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Score:
+		case FieldDBUserBaseInfo_Score:
 
 			// --- 直读字段: Score ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1113,7 +1017,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Token:
+		case FieldDBUserBaseInfo_Token:
 
 			// --- 直读字段: Token ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1122,7 +1026,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 
 			}
 
-		case FieldUserBaseInfo_Profile:
+		case FieldDBUserBaseInfo_Profile:
 
 			// --- Protobuf 反序列化字段: Profile ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1131,7 +1035,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 				}
 			}
 
-		case FieldUserBaseInfo_VipLevel:
+		case FieldDBUserBaseInfo_VipLevel:
 
 			// --- 直读字段: VipLevel ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -1140,7 +1044,7 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 				if err != nil {
 					return fmt.Errorf("解析枚举字段 %s 失败: %v", "VipLevel", err)
 				}
-				p.VipLevel = UserBaseInfo_VipLevel(int32(intValue))
+				p.VipLevel = DBUserBaseInfo_VipLevel(int32(intValue))
 
 			}
 
@@ -1157,92 +1061,108 @@ func (p *UserBaseInfo) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要存储的字段编号列表，如 FieldUserBaseInfo_Name, FieldUserBaseInfo_Age
+// fields: 要存储的字段编号列表，如 FieldDBUserBaseInfo_Name, FieldDBUserBaseInfo_Age
 //
-//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUserBaseInfoIDs）
-//	集合字段（map/repeated）以元素级存储整体替换（Lua 原子操作）
-func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo) error {
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldDBUserBaseInfoIDs）
+//	集合字段（map/repeated）整体 protobuf 序列化后写入
+func (p *DBUserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldUserBaseInfoIDs
+		fieldsToUse = FieldDBUserBaseInfoIDs
 	}
 
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUserBaseInfo_UserId:
+		case FieldDBUserBaseInfo_UserId:
 
 			// --- 直存字段: UserId ---
 			args = append(args, fieldID, p.UserId)
 
-		case FieldUserBaseInfo_Username:
+		case FieldDBUserBaseInfo_Username:
 
 			// --- 直存字段: Username ---
 			args = append(args, fieldID, p.Username)
 
-		case FieldUserBaseInfo_AvatarUrl:
+		case FieldDBUserBaseInfo_AvatarUrl:
 
 			// --- 直存字段: AvatarUrl ---
 			args = append(args, fieldID, p.AvatarUrl)
 
-		case FieldUserBaseInfo_Gender:
+		case FieldDBUserBaseInfo_Gender:
 
 			// --- 直存字段: Gender ---
 			args = append(args, fieldID, p.Gender)
 
-		case FieldUserBaseInfo_Level:
+		case FieldDBUserBaseInfo_Level:
 
 			// --- 直存字段: Level ---
 			args = append(args, fieldID, p.Level)
 
-		case FieldUserBaseInfo_Exp:
+		case FieldDBUserBaseInfo_Exp:
 
 			// --- 直存字段: Exp ---
 			args = append(args, fieldID, p.Exp)
 
-		case FieldUserBaseInfo_Balance:
+		case FieldDBUserBaseInfo_Balance:
 
 			// --- 直存字段: Balance ---
 			args = append(args, fieldID, p.Balance)
 
-		case FieldUserBaseInfo_Friends:
+		case FieldDBUserBaseInfo_Friends:
 
-			// --- 集合字段: Friends（元素级存储，整体替换）---
-			if err := p.SetFriendsAll(conn, REDBKey, ida, idb, p.Friends); err != nil {
-				return fmt.Errorf("写入字段 %s 失败: %v", "Friends", err)
+			// --- Protobuf 序列化字段: Friends ---
+			{
+				b, err := p.Friends.MarshalRedisProto()
+				if err != nil {
+					return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Friends", err)
+				}
+				args = append(args, fieldID, b)
 			}
 
-		case FieldUserBaseInfo_Settings:
+		case FieldDBUserBaseInfo_Settings:
 
-			// --- 集合字段: Settings（元素级存储，整体替换）---
-			if err := p.SetSettingsAll(conn, REDBKey, ida, idb, p.Settings); err != nil {
-				return fmt.Errorf("写入字段 %s 失败: %v", "Settings", err)
+			// --- Protobuf 序列化字段: Settings ---
+			{
+				b, err := p.Settings.MarshalRedisProto()
+				if err != nil {
+					return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Settings", err)
+				}
+				args = append(args, fieldID, b)
 			}
 
-		case FieldUserBaseInfo_LoginSource:
+		case FieldDBUserBaseInfo_LoginSource:
 
 			// --- 直存字段: LoginSource ---
 			args = append(args, fieldID, p.LoginSource)
 
-		case FieldUserBaseInfo_Listint32:
+		case FieldDBUserBaseInfo_Int32List:
 
-			// --- 集合字段: Listint32（元素级存储，整体替换）---
-			if err := p.SetListint32All(conn, REDBKey, ida, idb, p.Listint32); err != nil {
-				return fmt.Errorf("写入字段 %s 失败: %v", "Listint32", err)
+			// --- Protobuf 序列化字段: Int32List ---
+			{
+				b, err := p.Int32List.MarshalRedisProto()
+				if err != nil {
+					return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Int32List", err)
+				}
+				args = append(args, fieldID, b)
 			}
 
-		case FieldUserBaseInfo_Weapons:
+		case FieldDBUserBaseInfo_Weapons:
 
-			// --- 集合字段: Weapons（元素级存储，整体替换）---
-			if err := p.SetWeaponsAll(conn, REDBKey, ida, idb, p.Weapons); err != nil {
-				return fmt.Errorf("写入字段 %s 失败: %v", "Weapons", err)
+			// --- Protobuf 序列化字段: Weapons ---
+			{
+				b, err := p.Weapons.MarshalRedisProto()
+				if err != nil {
+					return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Weapons", err)
+				}
+				args = append(args, fieldID, b)
 			}
 
-		case FieldUserBaseInfo_Weapon:
+		case FieldDBUserBaseInfo_Weapon:
 
 			// --- Protobuf 序列化字段: Weapon ---
 			{
@@ -1253,39 +1173,43 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 				args = append(args, fieldID, b)
 			}
 
-		case FieldUserBaseInfo_WeaponMap:
+		case FieldDBUserBaseInfo_WeaponMap:
 
-			// --- 集合字段: WeaponMap（元素级存储，整体替换）---
-			if err := p.SetWeaponMapAll(conn, REDBKey, ida, idb, p.WeaponMap); err != nil {
-				return fmt.Errorf("写入字段 %s 失败: %v", "WeaponMap", err)
+			// --- Protobuf 序列化字段: WeaponMap ---
+			{
+				b, err := p.WeaponMap.MarshalRedisProto()
+				if err != nil {
+					return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "WeaponMap", err)
+				}
+				args = append(args, fieldID, b)
 			}
 
-		case FieldUserBaseInfo_Coin:
+		case FieldDBUserBaseInfo_Coin:
 
 			// --- 直存字段: Coin ---
 			args = append(args, fieldID, p.Coin)
 
-		case FieldUserBaseInfo_Gem:
+		case FieldDBUserBaseInfo_Gem:
 
 			// --- 直存字段: Gem ---
 			args = append(args, fieldID, p.Gem)
 
-		case FieldUserBaseInfo_Vip:
+		case FieldDBUserBaseInfo_Vip:
 
 			// --- 直存字段: Vip ---
 			args = append(args, fieldID, p.Vip)
 
-		case FieldUserBaseInfo_Score:
+		case FieldDBUserBaseInfo_Score:
 
 			// --- 直存字段: Score ---
 			args = append(args, fieldID, p.Score)
 
-		case FieldUserBaseInfo_Token:
+		case FieldDBUserBaseInfo_Token:
 
 			// --- 直存字段: Token ---
 			args = append(args, fieldID, p.Token)
 
-		case FieldUserBaseInfo_Profile:
+		case FieldDBUserBaseInfo_Profile:
 
 			// --- Protobuf 序列化字段: Profile ---
 			{
@@ -1296,7 +1220,7 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 				args = append(args, fieldID, b)
 			}
 
-		case FieldUserBaseInfo_VipLevel:
+		case FieldDBUserBaseInfo_VipLevel:
 
 			// --- 直存字段: VipLevel ---
 			args = append(args, fieldID, p.VipLevel)
@@ -1306,7 +1230,7 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 		}
 	}
 
-	// 仅当存在直存字段时才执行 HSET（纯集合字段的写入已在各 Set<Field>All 中完成）
+	// 所有字段统一一次 HSET 写入
 	if len(args) > 1 {
 		_, err := conn.Do("HSET", args...)
 		return err
@@ -1314,681 +1238,1466 @@ func (p *UserBaseInfo) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint6
 	return nil
 }
 
-// SetFriends 设置 Friends 中指定下标的元素（元素级写入，不触碰其他元素）
-func (p *UserBaseInfo) SetFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int, v string) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。
 
-	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%d", 8, i), v)
+// --- Message: DBUserBaseInfo_DBFriends ---
 
-	return err
+// FieldDBUserBaseInfo_DBFriends 用于标识 Redis Hash 中的字段编号
+type FieldDBUserBaseInfo_DBFriends uint32
+
+// FieldDBUserBaseInfo_DBFriends_Items 是字段 Items 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_DBFriends_Items FieldDBUserBaseInfo_DBFriends = 1
+
+// FieldDBUserBaseInfo_DBFriendsIDs 是所有字段编号常量的集合，类型为 []FieldDBUserBaseInfo_DBFriends
+var FieldDBUserBaseInfo_DBFriendsIDs = []FieldDBUserBaseInfo_DBFriends{
+	FieldDBUserBaseInfo_DBFriends_Items,
 }
 
-// GetFriends 读取 Friends 中指定下标的元素；下标不存在时返回零值与 false
-func (p *UserBaseInfo) GetFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (string, bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%d", 8, i))
-	if err != nil {
-		return "", false, err
-	}
-	if reply == nil {
-		return "", false, nil
-	}
-
-	v, err := redis.String(reply, nil)
-	if err != nil {
-		return "", false, fmt.Errorf("解析元素失败: %v", err)
-	}
-
-	return v, true, nil
+// DBUserBaseInfo_DBFriends 提供针对 DBUserBaseInfo_DBFriends 消息的 Redis 存取操作
+type DBUserBaseInfo_DBFriends struct {
+	Items []string
 }
 
-// DelFriends 删除 Friends 中指定下标的元素；返回是否删除成功。
-// 注意：删除后不压缩下标，后续 Append 会继续使用最大下标 + 1
-func (p *UserBaseInfo) DelFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%d", 8, i))
-	if err != nil {
-		return false, err
-	}
-	n, err := redis.Int(reply, nil)
-	return n > 0, err
+// NewDBUserBaseInfo_DBFriends 创建一个新的 DBUserBaseInfo_DBFriends 实例
+func NewDBUserBaseInfo_DBFriends() *DBUserBaseInfo_DBFriends {
+	return &DBUserBaseInfo_DBFriends{}
 }
 
-// AppendFriends 追加一个元素到 Friends 末尾，返回新元素下标（Lua 原子操作）
-func (p *UserBaseInfo) AppendFriends(conn redis.Conn, REDBKey uint32, ida, idb uint64, v string) (int, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal max = -1\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    local idx = tonumber(string.sub(entries[i], #prefix + 1))\n    if idx and idx > max then max = idx end\n  end\nuntil cursor == \"0\"\nredis.call(\"HSET\", KEYS[1], prefix..(max + 1), ARGV[2])\nreturn max + 1"
+// MarshalRedisProto 将 DBUserBaseInfo_DBFriends 序列化为 protobuf wire format 字节流。
+// 字节流与语言无关：任何语言使用同一份 .proto 定义即可解析。
+// 编码遵循 proto3 语义：零值标量/空字符串/空 bytes 不编码，message 字段恒编码，
+// repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
+func (p *DBUserBaseInfo_DBFriends) MarshalRedisProto() ([]byte, error) {
+	var buf []byte
 
-	reply, err := conn.Do("EVAL", script, 1, key, 8, v)
+	// 字段 Items（tag 1）
 
-	if err != nil {
-		return 0, err
+	for _, v := range p.Items {
+		buf = redisProtoAppendTag(buf, 1, 2)
+		buf = redisProtoAppendLen(buf, []byte(v))
 	}
-	n, err := redis.Int(reply, nil)
-	return n, err
+
+	return buf, nil
 }
 
-// GetFriendsAll 读取 Friends 全部元素（按存储下标升序），填充到 p.Friends（未写入过则为 nil）
-func (p *UserBaseInfo) GetFriendsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	prefix := fmt.Sprintf("%d:", 8)
-	type item struct {
-		idx int
-		val string
-	}
-	var items []item
-	cursor := "0"
-	for {
-		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 DBUserBaseInfo_DBFriends。
+// 反序列化前会先重置自身；未知字段跳过，缺失字段保持零值（proto3 语义）。
+func (p *DBUserBaseInfo_DBFriends) UnmarshalRedisProto(b []byte) error {
+	*p = DBUserBaseInfo_DBFriends{}
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
 		if err != nil {
-			return fmt.Errorf("HSCAN 失败: %v", err)
+			return fmt.Errorf("protobuf 读取字段 tag 失败: %v", err)
 		}
-		vals, err := redis.Values(reply, nil)
-		if err != nil {
-			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
-		}
-		cursor, err = redis.String(vals[0], nil)
-		if err != nil {
-			return fmt.Errorf("解析游标失败: %v", err)
-		}
-		entries, err := redis.Strings(vals[1], nil)
-		if err != nil {
-			return fmt.Errorf("解析条目失败: %v", err)
-		}
-		for i := 0; i+1 < len(entries); i += 2 {
-			idx, err := strconv.Atoi(entries[i][len(prefix):])
-			if err != nil {
-				return fmt.Errorf("解析下标失败: %v", err)
+		b = b[n:]
+		field := tag >> 3
+		wire := tag & 7
+		switch field {
+
+		case 1: // Items
+
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Items", wire)
 			}
+			v, n, err := redisProtoReadBytes(b)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+			p.Items = append(p.Items, string(v))
 
-			vv := entries[i+1]
-
-			items = append(items, item{idx: idx, val: vv})
+		default:
+			n, err = redisProtoSkip(b, wire)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
 		}
-		if cursor == "0" {
-			break
-		}
 	}
-	if len(items) == 0 {
-		p.Friends = nil
-		return nil
-	}
-	sort.Slice(items, func(a, b int) bool { return items[a].idx < items[b].idx })
-	result := make([]string, len(items))
-	for i, it := range items {
-		result[i] = it.val
-	}
-	p.Friends = result
 	return nil
 }
 
-// SetFriendsAll 用给定切片整体替换 Friends（Lua 原子操作：清空后按下标 0..n-1 重建，可修复删除留下的空洞）
-func (p *UserBaseInfo) SetFriendsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64, s []string) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV do\n  redis.call(\"HSET\", KEYS[1], prefix..(i - 2), ARGV[i])\nend\nreturn 1"
-	args := []interface{}{script, 1, key, 8}
-	for _, v := range s {
+// MarshalRedisProtoItems 将字段 Items（集合字段）整体序列化为 protobuf wire format 字节，
+// 即 Items 在 Redis Hash 中的值（hash field = tag 1）
+func (p *DBUserBaseInfo_DBFriends) MarshalRedisProtoItems() ([]byte, error) {
+	var buf []byte
 
-		args = append(args, v)
+	// 字段 Items（tag 1）
 
-	}
-	_, err := conn.Do("EVAL", args...)
-	return err
-}
-
-// DelFriendsAll 删除 Friends 的全部元素（Lua 原子操作）
-func (p *UserBaseInfo) DelFriendsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
-	_, err := conn.Do("EVAL", script, 1, key, 8)
-	return err
-}
-
-// SetSettings 设置 Settings 中单个键的值（元素级写入，不触碰其他元素）
-func (p *UserBaseInfo) SetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string, v string) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-
-	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%v", 9, k), v)
-
-	return err
-}
-
-// GetSettings 读取 Settings 中单个键的值；键不存在时返回零值与 false
-func (p *UserBaseInfo) GetSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (string, bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%v", 9, k))
-	if err != nil {
-		return "", false, err
-	}
-	if reply == nil {
-		return "", false, nil
+	for _, v := range p.Items {
+		buf = redisProtoAppendTag(buf, 1, 2)
+		buf = redisProtoAppendLen(buf, []byte(v))
 	}
 
-	v, err := redis.String(reply, nil)
-	if err != nil {
-		return "", false, fmt.Errorf("解析元素失败: %v", err)
-	}
-
-	return v, true, nil
+	return buf, nil
 }
 
-// DelSettings 删除 Settings 中单个键；返回是否删除成功
-func (p *UserBaseInfo) DelSettings(conn redis.Conn, REDBKey uint32, ida, idb uint64, k string) (bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%v", 9, k))
-	if err != nil {
-		return false, err
-	}
-	n, err := redis.Int(reply, nil)
-	return n > 0, err
-}
-
-// GetSettingsAll 读取 Settings 全部键值，填充到 p.Settings（未写入过则为空 map）
-func (p *UserBaseInfo) GetSettingsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	prefix := fmt.Sprintf("%d:", 9)
-	result := make(map[string]string)
-	cursor := "0"
-	for {
-		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+// UnmarshalRedisProtoItems 从 Items 字段的 protobuf wire format 字节反序列化
+// （字节须为 MarshalRedisProtoItems 的输出，或等价的单字段 protobuf 编码）
+func (p *DBUserBaseInfo_DBFriends) UnmarshalRedisProtoItems(b []byte) error {
+	p.Items = nil
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
 		if err != nil {
-			return fmt.Errorf("HSCAN 失败: %v", err)
+			return err
 		}
-		vals, err := redis.Values(reply, nil)
-		if err != nil {
-			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
+		if tag>>3 != 1 {
+			return fmt.Errorf("protobuf 字段 %s tag 不匹配: %d", "Items", tag>>3)
 		}
-		cursor, err = redis.String(vals[0], nil)
-		if err != nil {
-			return fmt.Errorf("解析游标失败: %v", err)
-		}
-		entries, err := redis.Strings(vals[1], nil)
-		if err != nil {
-			return fmt.Errorf("解析条目失败: %v", err)
-		}
-		for i := 0; i+1 < len(entries); i += 2 {
+		b = b[n:]
+		{
+			wire := tag & 7
 
-			kk := entries[i][len(prefix):]
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Items", wire)
+			}
+			v, n, err := redisProtoReadBytes(b)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+			p.Items = append(p.Items, string(v))
 
-			vv := entries[i+1]
-
-			result[kk] = vv
-		}
-		if cursor == "0" {
-			break
 		}
 	}
-	if len(result) == 0 {
-		p.Settings = nil
-		return nil
-	}
-	p.Settings = result
 	return nil
 }
 
-// SetSettingsAll 用给定 map 整体替换 Settings（Lua 原子操作：先清空旧元素再写入）
-func (p *UserBaseInfo) SetSettingsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64, m map[string]string) error {
+// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要读取的字段编号列表，如 FieldDBUserBaseInfo_DBFriends_Name, FieldDBUserBaseInfo_DBFriends_Age
+//
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldDBUserBaseInfo_DBFriendsIDs）
+//	集合字段（map/repeated）整体 protobuf 反序列化
+func (p *DBUserBaseInfo_DBFriends) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBFriends) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV, 2 do\n  redis.call(\"HSET\", KEYS[1], prefix..ARGV[i], ARGV[i+1])\nend\nreturn 1"
-	args := []interface{}{script, 1, key, 9}
-	for k, v := range m {
 
-		args = append(args, fmt.Sprintf("%v", k), v)
-
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBFriendsIDs
 	}
-	_, err := conn.Do("EVAL", args...)
-	return err
-}
 
-// DelSettingsAll 删除 Settings 的全部元素（Lua 原子操作）
-func (p *UserBaseInfo) DelSettingsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
-	_, err := conn.Do("EVAL", script, 1, key, 9)
-	return err
-}
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
+	args := []interface{}{key}
+	for _, fieldID := range fieldsToUse {
+		args = append(args, fieldID)
+	}
 
-// SetListint32 设置 Listint32 中指定下标的元素（元素级写入，不触碰其他元素）
-func (p *UserBaseInfo) SetListint32(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int, v int32) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-
-	_, err := conn.Do("HSET", key, fmt.Sprintf("%d:%d", 11, i), v)
-
-	return err
-}
-
-// GetListint32 读取 Listint32 中指定下标的元素；下标不存在时返回零值与 false
-func (p *UserBaseInfo) GetListint32(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (int32, bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%d", 11, i))
+	// 一次 HMGET 获取所有字段值
+	reply, err := conn.Do("HMGET", args...)
 	if err != nil {
-		return 0, false, err
-	}
-	if reply == nil {
-		return 0, false, nil
+		return fmt.Errorf("HMGET 失败: %v", err)
 	}
 
-	iv, err := redis.Int(reply, nil)
+	// 解析返回的 []interface{} 列表
+	values, err := redis.Values(reply, nil)
 	if err != nil {
-		return 0, false, fmt.Errorf("解析元素失败: %v", err)
+		return fmt.Errorf("解析 HMGET 结果失败: %v", err)
 	}
-	v := int32(iv)
 
-	return v, true, nil
-}
+	// 逐一处理每个字段
+	fieldIndex := 0
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
 
-// DelListint32 删除 Listint32 中指定下标的元素；返回是否删除成功。
-// 注意：删除后不压缩下标，后续 Append 会继续使用最大下标 + 1
-func (p *UserBaseInfo) DelListint32(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%d", 11, i))
-	if err != nil {
-		return false, err
-	}
-	n, err := redis.Int(reply, nil)
-	return n > 0, err
-}
+		case FieldDBUserBaseInfo_DBFriends_Items:
 
-// AppendListint32 追加一个元素到 Listint32 末尾，返回新元素下标（Lua 原子操作）
-func (p *UserBaseInfo) AppendListint32(conn redis.Conn, REDBKey uint32, ida, idb uint64, v int32) (int, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal max = -1\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    local idx = tonumber(string.sub(entries[i], #prefix + 1))\n    if idx and idx > max then max = idx end\n  end\nuntil cursor == \"0\"\nredis.call(\"HSET\", KEYS[1], prefix..(max + 1), ARGV[2])\nreturn max + 1"
-
-	reply, err := conn.Do("EVAL", script, 1, key, 11, v)
-
-	if err != nil {
-		return 0, err
-	}
-	n, err := redis.Int(reply, nil)
-	return n, err
-}
-
-// GetListint32All 读取 Listint32 全部元素（按存储下标升序），填充到 p.Listint32（未写入过则为 nil）
-func (p *UserBaseInfo) GetListint32All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	prefix := fmt.Sprintf("%d:", 11)
-	type item struct {
-		idx int
-		val int32
-	}
-	var items []item
-	cursor := "0"
-	for {
-		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
-		if err != nil {
-			return fmt.Errorf("HSCAN 失败: %v", err)
-		}
-		vals, err := redis.Values(reply, nil)
-		if err != nil {
-			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
-		}
-		cursor, err = redis.String(vals[0], nil)
-		if err != nil {
-			return fmt.Errorf("解析游标失败: %v", err)
-		}
-		entries, err := redis.Strings(vals[1], nil)
-		if err != nil {
-			return fmt.Errorf("解析条目失败: %v", err)
-		}
-		for i := 0; i+1 < len(entries); i += 2 {
-			idx, err := strconv.Atoi(entries[i][len(prefix):])
-			if err != nil {
-				return fmt.Errorf("解析下标失败: %v", err)
+			// --- 集合字段: Items（整体 protobuf 反序列化）---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.UnmarshalRedisProtoItems(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Items", err)
+				}
 			}
 
-			iv, err := redis.Int([]byte(entries[i+1]), nil)
-			if err != nil {
-				return fmt.Errorf("解析元素失败: %v", err)
-			}
-			vv := int32(iv)
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+		fieldIndex++
+	}
 
-			items = append(items, item{idx: idx, val: vv})
-		}
-		if cursor == "0" {
-			break
-		}
-	}
-	if len(items) == 0 {
-		p.Listint32 = nil
-		return nil
-	}
-	sort.Slice(items, func(a, b int) bool { return items[a].idx < items[b].idx })
-	result := make([]int32, len(items))
-	for i, it := range items {
-		result[i] = it.val
-	}
-	p.Listint32 = result
 	return nil
 }
 
-// SetListint32All 用给定切片整体替换 Listint32（Lua 原子操作：清空后按下标 0..n-1 重建，可修复删除留下的空洞）
-func (p *UserBaseInfo) SetListint32All(conn redis.Conn, REDBKey uint32, ida, idb uint64, s []int32) error {
+// SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要存储的字段编号列表，如 FieldDBUserBaseInfo_DBFriends_Name, FieldDBUserBaseInfo_DBFriends_Age
+//
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldDBUserBaseInfo_DBFriendsIDs）
+//	集合字段（map/repeated）整体 protobuf 序列化后写入
+func (p *DBUserBaseInfo_DBFriends) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBFriends) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV do\n  redis.call(\"HSET\", KEYS[1], prefix..(i - 2), ARGV[i])\nend\nreturn 1"
-	args := []interface{}{script, 1, key, 11}
-	for _, v := range s {
+	args := []interface{}{key}
 
-		args = append(args, v)
-
-	}
-	_, err := conn.Do("EVAL", args...)
-	return err
-}
-
-// DelListint32All 删除 Listint32 的全部元素（Lua 原子操作）
-func (p *UserBaseInfo) DelListint32All(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
-	_, err := conn.Do("EVAL", script, 1, key, 11)
-	return err
-}
-
-// SetWeapons 设置 Weapons 中指定下标的元素（元素级写入，不触碰其他元素）
-func (p *UserBaseInfo) SetWeapons(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int, v Weapon) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-
-	b, err := v.MarshalRedisProto()
-	if err != nil {
-		return fmt.Errorf("protobuf 序列化元素失败: %v", err)
-	}
-	_, err = conn.Do("HSET", key, fmt.Sprintf("%d:%d", 12, i), b)
-
-	return err
-}
-
-// GetWeapons 读取 Weapons 中指定下标的元素；下标不存在时返回零值与 false
-func (p *UserBaseInfo) GetWeapons(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (Weapon, bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%d", 12, i))
-	if err != nil {
-		return Weapon{}, false, err
-	}
-	if reply == nil {
-		return Weapon{}, false, nil
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBFriendsIDs
 	}
 
-	b, err := redis.Bytes(reply, nil)
-	if err != nil {
-		return Weapon{}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	var v Weapon
-	if err := v.UnmarshalRedisProto(b); err != nil {
-		return Weapon{}, false, fmt.Errorf("protobuf 反序列化元素失败: %v", err)
-	}
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
 
-	return v, true, nil
-}
+		case FieldDBUserBaseInfo_DBFriends_Items:
 
-// DelWeapons 删除 Weapons 中指定下标的元素；返回是否删除成功。
-// 注意：删除后不压缩下标，后续 Append 会继续使用最大下标 + 1
-func (p *UserBaseInfo) DelWeapons(conn redis.Conn, REDBKey uint32, ida, idb uint64, i int) (bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%d", 12, i))
-	if err != nil {
-		return false, err
-	}
-	n, err := redis.Int(reply, nil)
-	return n > 0, err
-}
-
-// AppendWeapons 追加一个元素到 Weapons 末尾，返回新元素下标（Lua 原子操作）
-func (p *UserBaseInfo) AppendWeapons(conn redis.Conn, REDBKey uint32, ida, idb uint64, v Weapon) (int, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal max = -1\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    local idx = tonumber(string.sub(entries[i], #prefix + 1))\n    if idx and idx > max then max = idx end\n  end\nuntil cursor == \"0\"\nredis.call(\"HSET\", KEYS[1], prefix..(max + 1), ARGV[2])\nreturn max + 1"
-
-	b, err := v.MarshalRedisProto()
-	if err != nil {
-		return 0, fmt.Errorf("protobuf 序列化元素失败: %v", err)
-	}
-	reply, err := conn.Do("EVAL", script, 1, key, 12, b)
-
-	if err != nil {
-		return 0, err
-	}
-	n, err := redis.Int(reply, nil)
-	return n, err
-}
-
-// GetWeaponsAll 读取 Weapons 全部元素（按存储下标升序），填充到 p.Weapons（未写入过则为 nil）
-func (p *UserBaseInfo) GetWeaponsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	prefix := fmt.Sprintf("%d:", 12)
-	type item struct {
-		idx int
-		val Weapon
-	}
-	var items []item
-	cursor := "0"
-	for {
-		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
-		if err != nil {
-			return fmt.Errorf("HSCAN 失败: %v", err)
-		}
-		vals, err := redis.Values(reply, nil)
-		if err != nil {
-			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
-		}
-		cursor, err = redis.String(vals[0], nil)
-		if err != nil {
-			return fmt.Errorf("解析游标失败: %v", err)
-		}
-		entries, err := redis.Strings(vals[1], nil)
-		if err != nil {
-			return fmt.Errorf("解析条目失败: %v", err)
-		}
-		for i := 0; i+1 < len(entries); i += 2 {
-			idx, err := strconv.Atoi(entries[i][len(prefix):])
+			// --- 集合字段: Items（整体 protobuf 序列化）---
+			b, err := p.MarshalRedisProtoItems()
 			if err != nil {
-				return fmt.Errorf("解析下标失败: %v", err)
+				return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Items", err)
 			}
+			args = append(args, fieldID, b)
 
-			var vv Weapon
-			if err := vv.UnmarshalRedisProto([]byte(entries[i+1])); err != nil {
-				return fmt.Errorf("protobuf 反序列化元素失败: %v", err)
-			}
-
-			items = append(items, item{idx: idx, val: vv})
-		}
-		if cursor == "0" {
-			break
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
 		}
 	}
-	if len(items) == 0 {
-		p.Weapons = nil
-		return nil
+
+	// 所有字段统一一次 HSET 写入
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
 	}
-	sort.Slice(items, func(a, b int) bool { return items[a].idx < items[b].idx })
-	result := make([]Weapon, len(items))
-	for i, it := range items {
-		result[i] = it.val
-	}
-	p.Weapons = result
 	return nil
 }
 
-// SetWeaponsAll 用给定切片整体替换 Weapons（Lua 原子操作：清空后按下标 0..n-1 重建，可修复删除留下的空洞）
-func (p *UserBaseInfo) SetWeaponsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64, s []Weapon) error {
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。
+
+// --- Message: DBUserBaseInfo_DBSettings ---
+
+// FieldDBUserBaseInfo_DBSettings 用于标识 Redis Hash 中的字段编号
+type FieldDBUserBaseInfo_DBSettings uint32
+
+// FieldDBUserBaseInfo_DBSettings_Kv 是字段 Kv 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_DBSettings_Kv FieldDBUserBaseInfo_DBSettings = 1
+
+// FieldDBUserBaseInfo_DBSettingsIDs 是所有字段编号常量的集合，类型为 []FieldDBUserBaseInfo_DBSettings
+var FieldDBUserBaseInfo_DBSettingsIDs = []FieldDBUserBaseInfo_DBSettings{
+	FieldDBUserBaseInfo_DBSettings_Kv,
+}
+
+// DBUserBaseInfo_DBSettings 提供针对 DBUserBaseInfo_DBSettings 消息的 Redis 存取操作
+type DBUserBaseInfo_DBSettings struct {
+	Kv map[string]string
+}
+
+// NewDBUserBaseInfo_DBSettings 创建一个新的 DBUserBaseInfo_DBSettings 实例
+func NewDBUserBaseInfo_DBSettings() *DBUserBaseInfo_DBSettings {
+	return &DBUserBaseInfo_DBSettings{}
+}
+
+// MarshalRedisProto 将 DBUserBaseInfo_DBSettings 序列化为 protobuf wire format 字节流。
+// 字节流与语言无关：任何语言使用同一份 .proto 定义即可解析。
+// 编码遵循 proto3 语义：零值标量/空字符串/空 bytes 不编码，message 字段恒编码，
+// repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
+func (p *DBUserBaseInfo_DBSettings) MarshalRedisProto() ([]byte, error) {
+	var buf []byte
+
+	// 字段 Kv（tag 1）
+
+	for k, v := range p.Kv {
+		var entry []byte
+
+		entry = redisProtoAppendTag(entry, 1, 2)
+		entry = redisProtoAppendLen(entry, []byte(k))
+
+		entry = redisProtoAppendTag(entry, 2, 2)
+		entry = redisProtoAppendLen(entry, []byte(v))
+
+		buf = redisProtoAppendTag(buf, 1, 2)
+		buf = redisProtoAppendLen(buf, entry)
+	}
+
+	return buf, nil
+}
+
+// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 DBUserBaseInfo_DBSettings。
+// 反序列化前会先重置自身；未知字段跳过，缺失字段保持零值（proto3 语义）。
+func (p *DBUserBaseInfo_DBSettings) UnmarshalRedisProto(b []byte) error {
+	*p = DBUserBaseInfo_DBSettings{}
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
+		if err != nil {
+			return fmt.Errorf("protobuf 读取字段 tag 失败: %v", err)
+		}
+		b = b[n:]
+		field := tag >> 3
+		wire := tag & 7
+		switch field {
+
+		case 1: // Kv
+
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Kv", wire)
+			}
+			entry, n, err := redisProtoReadBytes(b)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+			var k string
+			var val string
+			for len(entry) > 0 {
+				t2, m, err := redisProtoReadVarint(entry)
+				if err != nil {
+					return err
+				}
+				entry = entry[m:]
+				switch t2 >> 3 {
+				case 1: // map 键
+
+					if t2&7 != 2 {
+						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "Kv", t2&7)
+					}
+					payload, m, err := redisProtoReadBytes(entry)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+					k = string(payload)
+
+				case 2: // map 值
+
+					if t2&7 != 2 {
+						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "Kv", t2&7)
+					}
+					payload, m, err := redisProtoReadBytes(entry)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+					val = string(payload)
+
+				default:
+					m, err = redisProtoSkip(entry, t2&7)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+				}
+			}
+			if p.Kv == nil {
+				p.Kv = make(map[string]string)
+			}
+			p.Kv[k] = val
+
+		default:
+			n, err = redisProtoSkip(b, wire)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+		}
+	}
+	return nil
+}
+
+// MarshalRedisProtoKv 将字段 Kv（集合字段）整体序列化为 protobuf wire format 字节，
+// 即 Kv 在 Redis Hash 中的值（hash field = tag 1）
+func (p *DBUserBaseInfo_DBSettings) MarshalRedisProtoKv() ([]byte, error) {
+	var buf []byte
+
+	// 字段 Kv（tag 1）
+
+	for k, v := range p.Kv {
+		var entry []byte
+
+		entry = redisProtoAppendTag(entry, 1, 2)
+		entry = redisProtoAppendLen(entry, []byte(k))
+
+		entry = redisProtoAppendTag(entry, 2, 2)
+		entry = redisProtoAppendLen(entry, []byte(v))
+
+		buf = redisProtoAppendTag(buf, 1, 2)
+		buf = redisProtoAppendLen(buf, entry)
+	}
+
+	return buf, nil
+}
+
+// UnmarshalRedisProtoKv 从 Kv 字段的 protobuf wire format 字节反序列化
+// （字节须为 MarshalRedisProtoKv 的输出，或等价的单字段 protobuf 编码）
+func (p *DBUserBaseInfo_DBSettings) UnmarshalRedisProtoKv(b []byte) error {
+	p.Kv = nil
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
+		if err != nil {
+			return err
+		}
+		if tag>>3 != 1 {
+			return fmt.Errorf("protobuf 字段 %s tag 不匹配: %d", "Kv", tag>>3)
+		}
+		b = b[n:]
+		{
+			wire := tag & 7
+
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Kv", wire)
+			}
+			entry, n, err := redisProtoReadBytes(b)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+			var k string
+			var val string
+			for len(entry) > 0 {
+				t2, m, err := redisProtoReadVarint(entry)
+				if err != nil {
+					return err
+				}
+				entry = entry[m:]
+				switch t2 >> 3 {
+				case 1: // map 键
+
+					if t2&7 != 2 {
+						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "Kv", t2&7)
+					}
+					payload, m, err := redisProtoReadBytes(entry)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+					k = string(payload)
+
+				case 2: // map 值
+
+					if t2&7 != 2 {
+						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "Kv", t2&7)
+					}
+					payload, m, err := redisProtoReadBytes(entry)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+					val = string(payload)
+
+				default:
+					m, err = redisProtoSkip(entry, t2&7)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+				}
+			}
+			if p.Kv == nil {
+				p.Kv = make(map[string]string)
+			}
+			p.Kv[k] = val
+
+		}
+	}
+	return nil
+}
+
+// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要读取的字段编号列表，如 FieldDBUserBaseInfo_DBSettings_Name, FieldDBUserBaseInfo_DBSettings_Age
+//
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldDBUserBaseInfo_DBSettingsIDs）
+//	集合字段（map/repeated）整体 protobuf 反序列化
+func (p *DBUserBaseInfo_DBSettings) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBSettings) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV do\n  redis.call(\"HSET\", KEYS[1], prefix..(i - 2), ARGV[i])\nend\nreturn 1"
-	args := []interface{}{script, 1, key, 12}
-	for _, v := range s {
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBSettingsIDs
+	}
+
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
+	args := []interface{}{key}
+	for _, fieldID := range fieldsToUse {
+		args = append(args, fieldID)
+	}
+
+	// 一次 HMGET 获取所有字段值
+	reply, err := conn.Do("HMGET", args...)
+	if err != nil {
+		return fmt.Errorf("HMGET 失败: %v", err)
+	}
+
+	// 解析返回的 []interface{} 列表
+	values, err := redis.Values(reply, nil)
+	if err != nil {
+		return fmt.Errorf("解析 HMGET 结果失败: %v", err)
+	}
+
+	// 逐一处理每个字段
+	fieldIndex := 0
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldDBUserBaseInfo_DBSettings_Kv:
+
+			// --- 集合字段: Kv（整体 protobuf 反序列化）---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.UnmarshalRedisProtoKv(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Kv", err)
+				}
+			}
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+		fieldIndex++
+	}
+
+	return nil
+}
+
+// SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要存储的字段编号列表，如 FieldDBUserBaseInfo_DBSettings_Name, FieldDBUserBaseInfo_DBSettings_Age
+//
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldDBUserBaseInfo_DBSettingsIDs）
+//	集合字段（map/repeated）整体 protobuf 序列化后写入
+func (p *DBUserBaseInfo_DBSettings) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBSettings) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	args := []interface{}{key}
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBSettingsIDs
+	}
+
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldDBUserBaseInfo_DBSettings_Kv:
+
+			// --- 集合字段: Kv（整体 protobuf 序列化）---
+			b, err := p.MarshalRedisProtoKv()
+			if err != nil {
+				return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Kv", err)
+			}
+			args = append(args, fieldID, b)
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+	}
+
+	// 所有字段统一一次 HSET 写入
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
+	}
+	return nil
+}
+
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。
+
+// --- Message: DBUserBaseInfo_DBInt32List ---
+
+// FieldDBUserBaseInfo_DBInt32List 用于标识 Redis Hash 中的字段编号
+type FieldDBUserBaseInfo_DBInt32List uint32
+
+// FieldDBUserBaseInfo_DBInt32List_Items 是字段 Items 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_DBInt32List_Items FieldDBUserBaseInfo_DBInt32List = 1
+
+// FieldDBUserBaseInfo_DBInt32ListIDs 是所有字段编号常量的集合，类型为 []FieldDBUserBaseInfo_DBInt32List
+var FieldDBUserBaseInfo_DBInt32ListIDs = []FieldDBUserBaseInfo_DBInt32List{
+	FieldDBUserBaseInfo_DBInt32List_Items,
+}
+
+// DBUserBaseInfo_DBInt32List 提供针对 DBUserBaseInfo_DBInt32List 消息的 Redis 存取操作
+type DBUserBaseInfo_DBInt32List struct {
+	Items []int32
+}
+
+// NewDBUserBaseInfo_DBInt32List 创建一个新的 DBUserBaseInfo_DBInt32List 实例
+func NewDBUserBaseInfo_DBInt32List() *DBUserBaseInfo_DBInt32List {
+	return &DBUserBaseInfo_DBInt32List{}
+}
+
+// MarshalRedisProto 将 DBUserBaseInfo_DBInt32List 序列化为 protobuf wire format 字节流。
+// 字节流与语言无关：任何语言使用同一份 .proto 定义即可解析。
+// 编码遵循 proto3 语义：零值标量/空字符串/空 bytes 不编码，message 字段恒编码，
+// repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
+func (p *DBUserBaseInfo_DBInt32List) MarshalRedisProto() ([]byte, error) {
+	var buf []byte
+
+	// 字段 Items（tag 1）
+
+	// 枚举与整型元素（varint）
+	for _, v := range p.Items {
+		buf = redisProtoAppendTag(buf, 1, 0)
+		buf = redisProtoAppendVarint(buf, uint64(v))
+	}
+
+	return buf, nil
+}
+
+// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 DBUserBaseInfo_DBInt32List。
+// 反序列化前会先重置自身；未知字段跳过，缺失字段保持零值（proto3 语义）。
+func (p *DBUserBaseInfo_DBInt32List) UnmarshalRedisProto(b []byte) error {
+	*p = DBUserBaseInfo_DBInt32List{}
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
+		if err != nil {
+			return fmt.Errorf("protobuf 读取字段 tag 失败: %v", err)
+		}
+		b = b[n:]
+		field := tag >> 3
+		wire := tag & 7
+		switch field {
+
+		case 1: // Items
+
+			// 枚举与整型元素（varint，兼容 packed 编码）
+			if wire == 0 {
+				v, n, err := redisProtoReadVarint(b)
+				if err != nil {
+					return err
+				}
+				b = b[n:]
+				p.Items = append(p.Items, int32(v))
+			} else if wire == 2 {
+				payload, n, err := redisProtoReadBytes(b)
+				if err != nil {
+					return err
+				}
+				b = b[n:]
+				for len(payload) > 0 {
+					v, m, err := redisProtoReadVarint(payload)
+					if err != nil {
+						return err
+					}
+					payload = payload[m:]
+					p.Items = append(p.Items, int32(v))
+				}
+			} else {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Items", wire)
+			}
+
+		default:
+			n, err = redisProtoSkip(b, wire)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+		}
+	}
+	return nil
+}
+
+// MarshalRedisProtoItems 将字段 Items（集合字段）整体序列化为 protobuf wire format 字节，
+// 即 Items 在 Redis Hash 中的值（hash field = tag 1）
+func (p *DBUserBaseInfo_DBInt32List) MarshalRedisProtoItems() ([]byte, error) {
+	var buf []byte
+
+	// 字段 Items（tag 1）
+
+	// 枚举与整型元素（varint）
+	for _, v := range p.Items {
+		buf = redisProtoAppendTag(buf, 1, 0)
+		buf = redisProtoAppendVarint(buf, uint64(v))
+	}
+
+	return buf, nil
+}
+
+// UnmarshalRedisProtoItems 从 Items 字段的 protobuf wire format 字节反序列化
+// （字节须为 MarshalRedisProtoItems 的输出，或等价的单字段 protobuf 编码）
+func (p *DBUserBaseInfo_DBInt32List) UnmarshalRedisProtoItems(b []byte) error {
+	p.Items = nil
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
+		if err != nil {
+			return err
+		}
+		if tag>>3 != 1 {
+			return fmt.Errorf("protobuf 字段 %s tag 不匹配: %d", "Items", tag>>3)
+		}
+		b = b[n:]
+		{
+			wire := tag & 7
+
+			// 枚举与整型元素（varint，兼容 packed 编码）
+			if wire == 0 {
+				v, n, err := redisProtoReadVarint(b)
+				if err != nil {
+					return err
+				}
+				b = b[n:]
+				p.Items = append(p.Items, int32(v))
+			} else if wire == 2 {
+				payload, n, err := redisProtoReadBytes(b)
+				if err != nil {
+					return err
+				}
+				b = b[n:]
+				for len(payload) > 0 {
+					v, m, err := redisProtoReadVarint(payload)
+					if err != nil {
+						return err
+					}
+					payload = payload[m:]
+					p.Items = append(p.Items, int32(v))
+				}
+			} else {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Items", wire)
+			}
+
+		}
+	}
+	return nil
+}
+
+// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要读取的字段编号列表，如 FieldDBUserBaseInfo_DBInt32List_Name, FieldDBUserBaseInfo_DBInt32List_Age
+//
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldDBUserBaseInfo_DBInt32ListIDs）
+//	集合字段（map/repeated）整体 protobuf 反序列化
+func (p *DBUserBaseInfo_DBInt32List) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBInt32List) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBInt32ListIDs
+	}
+
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
+	args := []interface{}{key}
+	for _, fieldID := range fieldsToUse {
+		args = append(args, fieldID)
+	}
+
+	// 一次 HMGET 获取所有字段值
+	reply, err := conn.Do("HMGET", args...)
+	if err != nil {
+		return fmt.Errorf("HMGET 失败: %v", err)
+	}
+
+	// 解析返回的 []interface{} 列表
+	values, err := redis.Values(reply, nil)
+	if err != nil {
+		return fmt.Errorf("解析 HMGET 结果失败: %v", err)
+	}
+
+	// 逐一处理每个字段
+	fieldIndex := 0
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldDBUserBaseInfo_DBInt32List_Items:
+
+			// --- 集合字段: Items（整体 protobuf 反序列化）---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.UnmarshalRedisProtoItems(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Items", err)
+				}
+			}
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+		fieldIndex++
+	}
+
+	return nil
+}
+
+// SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要存储的字段编号列表，如 FieldDBUserBaseInfo_DBInt32List_Name, FieldDBUserBaseInfo_DBInt32List_Age
+//
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldDBUserBaseInfo_DBInt32ListIDs）
+//	集合字段（map/repeated）整体 protobuf 序列化后写入
+func (p *DBUserBaseInfo_DBInt32List) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBInt32List) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	args := []interface{}{key}
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBInt32ListIDs
+	}
+
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldDBUserBaseInfo_DBInt32List_Items:
+
+			// --- 集合字段: Items（整体 protobuf 序列化）---
+			b, err := p.MarshalRedisProtoItems()
+			if err != nil {
+				return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Items", err)
+			}
+			args = append(args, fieldID, b)
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+	}
+
+	// 所有字段统一一次 HSET 写入
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
+	}
+	return nil
+}
+
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。
+
+// --- Message: DBUserBaseInfo_DBWeapons ---
+
+// FieldDBUserBaseInfo_DBWeapons 用于标识 Redis Hash 中的字段编号
+type FieldDBUserBaseInfo_DBWeapons uint32
+
+// FieldDBUserBaseInfo_DBWeapons_Items 是字段 Items 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_DBWeapons_Items FieldDBUserBaseInfo_DBWeapons = 1
+
+// FieldDBUserBaseInfo_DBWeaponsIDs 是所有字段编号常量的集合，类型为 []FieldDBUserBaseInfo_DBWeapons
+var FieldDBUserBaseInfo_DBWeaponsIDs = []FieldDBUserBaseInfo_DBWeapons{
+	FieldDBUserBaseInfo_DBWeapons_Items,
+}
+
+// DBUserBaseInfo_DBWeapons 提供针对 DBUserBaseInfo_DBWeapons 消息的 Redis 存取操作
+type DBUserBaseInfo_DBWeapons struct {
+	Items []DBWeapon
+}
+
+// NewDBUserBaseInfo_DBWeapons 创建一个新的 DBUserBaseInfo_DBWeapons 实例
+func NewDBUserBaseInfo_DBWeapons() *DBUserBaseInfo_DBWeapons {
+	return &DBUserBaseInfo_DBWeapons{}
+}
+
+// MarshalRedisProto 将 DBUserBaseInfo_DBWeapons 序列化为 protobuf wire format 字节流。
+// 字节流与语言无关：任何语言使用同一份 .proto 定义即可解析。
+// 编码遵循 proto3 语义：零值标量/空字符串/空 bytes 不编码，message 字段恒编码，
+// repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
+func (p *DBUserBaseInfo_DBWeapons) MarshalRedisProto() ([]byte, error) {
+	var buf []byte
+
+	// 字段 Items（tag 1）
+
+	for _, v := range p.Items {
+		b, err := v.MarshalRedisProto()
+		if err != nil {
+			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Items", err)
+		}
+		buf = redisProtoAppendTag(buf, 1, 2)
+		buf = redisProtoAppendLen(buf, b)
+	}
+
+	return buf, nil
+}
+
+// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 DBUserBaseInfo_DBWeapons。
+// 反序列化前会先重置自身；未知字段跳过，缺失字段保持零值（proto3 语义）。
+func (p *DBUserBaseInfo_DBWeapons) UnmarshalRedisProto(b []byte) error {
+	*p = DBUserBaseInfo_DBWeapons{}
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
+		if err != nil {
+			return fmt.Errorf("protobuf 读取字段 tag 失败: %v", err)
+		}
+		b = b[n:]
+		field := tag >> 3
+		wire := tag & 7
+		switch field {
+
+		case 1: // Items
+
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Items", wire)
+			}
+			v, n, err := redisProtoReadBytes(b)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+			var elem DBWeapon
+			if err := elem.UnmarshalRedisProto(v); err != nil {
+				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Items", err)
+			}
+			p.Items = append(p.Items, elem)
+
+		default:
+			n, err = redisProtoSkip(b, wire)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+		}
+	}
+	return nil
+}
+
+// MarshalRedisProtoItems 将字段 Items（集合字段）整体序列化为 protobuf wire format 字节，
+// 即 Items 在 Redis Hash 中的值（hash field = tag 1）
+func (p *DBUserBaseInfo_DBWeapons) MarshalRedisProtoItems() ([]byte, error) {
+	var buf []byte
+
+	// 字段 Items（tag 1）
+
+	for _, v := range p.Items {
+		b, err := v.MarshalRedisProto()
+		if err != nil {
+			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Items", err)
+		}
+		buf = redisProtoAppendTag(buf, 1, 2)
+		buf = redisProtoAppendLen(buf, b)
+	}
+
+	return buf, nil
+}
+
+// UnmarshalRedisProtoItems 从 Items 字段的 protobuf wire format 字节反序列化
+// （字节须为 MarshalRedisProtoItems 的输出，或等价的单字段 protobuf 编码）
+func (p *DBUserBaseInfo_DBWeapons) UnmarshalRedisProtoItems(b []byte) error {
+	p.Items = nil
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
+		if err != nil {
+			return err
+		}
+		if tag>>3 != 1 {
+			return fmt.Errorf("protobuf 字段 %s tag 不匹配: %d", "Items", tag>>3)
+		}
+		b = b[n:]
+		{
+			wire := tag & 7
+
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Items", wire)
+			}
+			v, n, err := redisProtoReadBytes(b)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+			var elem DBWeapon
+			if err := elem.UnmarshalRedisProto(v); err != nil {
+				return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Items", err)
+			}
+			p.Items = append(p.Items, elem)
+
+		}
+	}
+	return nil
+}
+
+// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要读取的字段编号列表，如 FieldDBUserBaseInfo_DBWeapons_Name, FieldDBUserBaseInfo_DBWeapons_Age
+//
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldDBUserBaseInfo_DBWeaponsIDs）
+//	集合字段（map/repeated）整体 protobuf 反序列化
+func (p *DBUserBaseInfo_DBWeapons) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBWeapons) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBWeaponsIDs
+	}
+
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
+	args := []interface{}{key}
+	for _, fieldID := range fieldsToUse {
+		args = append(args, fieldID)
+	}
+
+	// 一次 HMGET 获取所有字段值
+	reply, err := conn.Do("HMGET", args...)
+	if err != nil {
+		return fmt.Errorf("HMGET 失败: %v", err)
+	}
+
+	// 解析返回的 []interface{} 列表
+	values, err := redis.Values(reply, nil)
+	if err != nil {
+		return fmt.Errorf("解析 HMGET 结果失败: %v", err)
+	}
+
+	// 逐一处理每个字段
+	fieldIndex := 0
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldDBUserBaseInfo_DBWeapons_Items:
+
+			// --- 集合字段: Items（整体 protobuf 反序列化）---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.UnmarshalRedisProtoItems(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Items", err)
+				}
+			}
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+		fieldIndex++
+	}
+
+	return nil
+}
+
+// SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要存储的字段编号列表，如 FieldDBUserBaseInfo_DBWeapons_Name, FieldDBUserBaseInfo_DBWeapons_Age
+//
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldDBUserBaseInfo_DBWeaponsIDs）
+//	集合字段（map/repeated）整体 protobuf 序列化后写入
+func (p *DBUserBaseInfo_DBWeapons) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBWeapons) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	args := []interface{}{key}
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBWeaponsIDs
+	}
+
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldDBUserBaseInfo_DBWeapons_Items:
+
+			// --- 集合字段: Items（整体 protobuf 序列化）---
+			b, err := p.MarshalRedisProtoItems()
+			if err != nil {
+				return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Items", err)
+			}
+			args = append(args, fieldID, b)
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+	}
+
+	// 所有字段统一一次 HSET 写入
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
+	}
+	return nil
+}
+
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。
+
+// --- Message: DBUserBaseInfo_DBWeaponMap ---
+
+// FieldDBUserBaseInfo_DBWeaponMap 用于标识 Redis Hash 中的字段编号
+type FieldDBUserBaseInfo_DBWeaponMap uint32
+
+// FieldDBUserBaseInfo_DBWeaponMap_Items 是字段 Items 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_DBWeaponMap_Items FieldDBUserBaseInfo_DBWeaponMap = 1
+
+// FieldDBUserBaseInfo_DBWeaponMapIDs 是所有字段编号常量的集合，类型为 []FieldDBUserBaseInfo_DBWeaponMap
+var FieldDBUserBaseInfo_DBWeaponMapIDs = []FieldDBUserBaseInfo_DBWeaponMap{
+	FieldDBUserBaseInfo_DBWeaponMap_Items,
+}
+
+// DBUserBaseInfo_DBWeaponMap 提供针对 DBUserBaseInfo_DBWeaponMap 消息的 Redis 存取操作
+type DBUserBaseInfo_DBWeaponMap struct {
+	Items map[int32]DBWeapon
+}
+
+// NewDBUserBaseInfo_DBWeaponMap 创建一个新的 DBUserBaseInfo_DBWeaponMap 实例
+func NewDBUserBaseInfo_DBWeaponMap() *DBUserBaseInfo_DBWeaponMap {
+	return &DBUserBaseInfo_DBWeaponMap{}
+}
+
+// MarshalRedisProto 将 DBUserBaseInfo_DBWeaponMap 序列化为 protobuf wire format 字节流。
+// 字节流与语言无关：任何语言使用同一份 .proto 定义即可解析。
+// 编码遵循 proto3 语义：零值标量/空字符串/空 bytes 不编码，message 字段恒编码，
+// repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
+func (p *DBUserBaseInfo_DBWeaponMap) MarshalRedisProto() ([]byte, error) {
+	var buf []byte
+
+	// 字段 Items（tag 1）
+
+	for k, v := range p.Items {
+		var entry []byte
+
+		entry = redisProtoAppendTag(entry, 1, 0)
+		entry = redisProtoAppendVarint(entry, uint64(k))
 
 		b, err := v.MarshalRedisProto()
 		if err != nil {
-			return fmt.Errorf("protobuf 序列化元素失败: %v", err)
+			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Items", err)
 		}
-		args = append(args, b)
+		entry = redisProtoAppendTag(entry, 2, 2)
+		entry = redisProtoAppendLen(entry, b)
 
+		buf = redisProtoAppendTag(buf, 1, 2)
+		buf = redisProtoAppendLen(buf, entry)
 	}
-	_, err := conn.Do("EVAL", args...)
-	return err
+
+	return buf, nil
 }
 
-// DelWeaponsAll 删除 Weapons 的全部元素（Lua 原子操作）
-func (p *UserBaseInfo) DelWeaponsAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
-	_, err := conn.Do("EVAL", script, 1, key, 12)
-	return err
-}
-
-// SetWeaponMap 设置 WeaponMap 中单个键的值（元素级写入，不触碰其他元素）
-func (p *UserBaseInfo) SetWeaponMap(conn redis.Conn, REDBKey uint32, ida, idb uint64, k int32, v Weapon) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-
-	b, err := v.MarshalRedisProto()
-	if err != nil {
-		return fmt.Errorf("protobuf 序列化元素失败: %v", err)
-	}
-	_, err = conn.Do("HSET", key, fmt.Sprintf("%d:%v", 14, k), b)
-
-	return err
-}
-
-// GetWeaponMap 读取 WeaponMap 中单个键的值；键不存在时返回零值与 false
-func (p *UserBaseInfo) GetWeaponMap(conn redis.Conn, REDBKey uint32, ida, idb uint64, k int32) (Weapon, bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HGET", key, fmt.Sprintf("%d:%v", 14, k))
-	if err != nil {
-		return Weapon{}, false, err
-	}
-	if reply == nil {
-		return Weapon{}, false, nil
-	}
-
-	b, err := redis.Bytes(reply, nil)
-	if err != nil {
-		return Weapon{}, false, fmt.Errorf("解析元素失败: %v", err)
-	}
-	var v Weapon
-	if err := v.UnmarshalRedisProto(b); err != nil {
-		return Weapon{}, false, fmt.Errorf("protobuf 反序列化元素失败: %v", err)
-	}
-
-	return v, true, nil
-}
-
-// DelWeaponMap 删除 WeaponMap 中单个键；返回是否删除成功
-func (p *UserBaseInfo) DelWeaponMap(conn redis.Conn, REDBKey uint32, ida, idb uint64, k int32) (bool, error) {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	reply, err := conn.Do("HDEL", key, fmt.Sprintf("%d:%v", 14, k))
-	if err != nil {
-		return false, err
-	}
-	n, err := redis.Int(reply, nil)
-	return n > 0, err
-}
-
-// GetWeaponMapAll 读取 WeaponMap 全部键值，填充到 p.WeaponMap（未写入过则为空 map）
-func (p *UserBaseInfo) GetWeaponMapAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	prefix := fmt.Sprintf("%d:", 14)
-	result := make(map[int32]Weapon)
-	cursor := "0"
-	for {
-		reply, err := conn.Do("HSCAN", key, cursor, "MATCH", prefix+"*", "COUNT", 512)
+// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 DBUserBaseInfo_DBWeaponMap。
+// 反序列化前会先重置自身；未知字段跳过，缺失字段保持零值（proto3 语义）。
+func (p *DBUserBaseInfo_DBWeaponMap) UnmarshalRedisProto(b []byte) error {
+	*p = DBUserBaseInfo_DBWeaponMap{}
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
 		if err != nil {
-			return fmt.Errorf("HSCAN 失败: %v", err)
+			return fmt.Errorf("protobuf 读取字段 tag 失败: %v", err)
 		}
-		vals, err := redis.Values(reply, nil)
-		if err != nil {
-			return fmt.Errorf("解析 HSCAN 结果失败: %v", err)
-		}
-		cursor, err = redis.String(vals[0], nil)
-		if err != nil {
-			return fmt.Errorf("解析游标失败: %v", err)
-		}
-		entries, err := redis.Strings(vals[1], nil)
-		if err != nil {
-			return fmt.Errorf("解析条目失败: %v", err)
-		}
-		for i := 0; i+1 < len(entries); i += 2 {
+		b = b[n:]
+		field := tag >> 3
+		wire := tag & 7
+		switch field {
 
-			kv, err := strconv.ParseInt(entries[i][len(prefix):], 10, 32)
+		case 1: // Items
+
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Items", wire)
+			}
+			entry, n, err := redisProtoReadBytes(b)
 			if err != nil {
-				return fmt.Errorf("解析键失败: %v", err)
+				return err
 			}
-			kk := int32(kv)
+			b = b[n:]
+			var k int32
+			var val DBWeapon
+			for len(entry) > 0 {
+				t2, m, err := redisProtoReadVarint(entry)
+				if err != nil {
+					return err
+				}
+				entry = entry[m:]
+				switch t2 >> 3 {
+				case 1: // map 键
 
-			var vv Weapon
-			if err := vv.UnmarshalRedisProto([]byte(entries[i+1])); err != nil {
-				return fmt.Errorf("protobuf 反序列化元素失败: %v", err)
+					if t2&7 != 0 {
+						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "Items", t2&7)
+					}
+					kv, m, err := redisProtoReadVarint(entry)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+					k = int32(kv)
+
+				case 2: // map 值
+
+					if t2&7 != 2 {
+						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "Items", t2&7)
+					}
+					payload, m, err := redisProtoReadBytes(entry)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+					if err := val.UnmarshalRedisProto(payload); err != nil {
+						return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Items", err)
+					}
+
+				default:
+					m, err = redisProtoSkip(entry, t2&7)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+				}
 			}
+			if p.Items == nil {
+				p.Items = make(map[int32]DBWeapon)
+			}
+			p.Items[k] = val
 
-			result[kk] = vv
-		}
-		if cursor == "0" {
-			break
+		default:
+			n, err = redisProtoSkip(b, wire)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
 		}
 	}
-	if len(result) == 0 {
-		p.WeaponMap = nil
-		return nil
-	}
-	p.WeaponMap = result
 	return nil
 }
 
-// SetWeaponMapAll 用给定 map 整体替换 WeaponMap（Lua 原子操作：先清空旧元素再写入）
-func (p *UserBaseInfo) SetWeaponMapAll(conn redis.Conn, REDBKey uint32, ida, idb uint64, m map[int32]Weapon) error {
-	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nfor i = 2, #ARGV, 2 do\n  redis.call(\"HSET\", KEYS[1], prefix..ARGV[i], ARGV[i+1])\nend\nreturn 1"
-	args := []interface{}{script, 1, key, 14}
-	for k, v := range m {
+// MarshalRedisProtoItems 将字段 Items（集合字段）整体序列化为 protobuf wire format 字节，
+// 即 Items 在 Redis Hash 中的值（hash field = tag 1）
+func (p *DBUserBaseInfo_DBWeaponMap) MarshalRedisProtoItems() ([]byte, error) {
+	var buf []byte
+
+	// 字段 Items（tag 1）
+
+	for k, v := range p.Items {
+		var entry []byte
+
+		entry = redisProtoAppendTag(entry, 1, 0)
+		entry = redisProtoAppendVarint(entry, uint64(k))
 
 		b, err := v.MarshalRedisProto()
 		if err != nil {
-			return fmt.Errorf("protobuf 序列化元素失败: %v", err)
+			return nil, fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Items", err)
 		}
-		args = append(args, fmt.Sprintf("%v", k), b)
+		entry = redisProtoAppendTag(entry, 2, 2)
+		entry = redisProtoAppendLen(entry, b)
 
+		buf = redisProtoAppendTag(buf, 1, 2)
+		buf = redisProtoAppendLen(buf, entry)
 	}
-	_, err := conn.Do("EVAL", args...)
-	return err
+
+	return buf, nil
 }
 
-// DelWeaponMapAll 删除 WeaponMap 的全部元素（Lua 原子操作）
-func (p *UserBaseInfo) DelWeaponMapAll(conn redis.Conn, REDBKey uint32, ida, idb uint64) error {
+// UnmarshalRedisProtoItems 从 Items 字段的 protobuf wire format 字节反序列化
+// （字节须为 MarshalRedisProtoItems 的输出，或等价的单字段 protobuf 编码）
+func (p *DBUserBaseInfo_DBWeaponMap) UnmarshalRedisProtoItems(b []byte) error {
+	p.Items = nil
+	for len(b) > 0 {
+		tag, n, err := redisProtoReadVarint(b)
+		if err != nil {
+			return err
+		}
+		if tag>>3 != 1 {
+			return fmt.Errorf("protobuf 字段 %s tag 不匹配: %d", "Items", tag>>3)
+		}
+		b = b[n:]
+		{
+			wire := tag & 7
+
+			if wire != 2 {
+				return fmt.Errorf("protobuf 字段 %s wire type 错误: %d", "Items", wire)
+			}
+			entry, n, err := redisProtoReadBytes(b)
+			if err != nil {
+				return err
+			}
+			b = b[n:]
+			var k int32
+			var val DBWeapon
+			for len(entry) > 0 {
+				t2, m, err := redisProtoReadVarint(entry)
+				if err != nil {
+					return err
+				}
+				entry = entry[m:]
+				switch t2 >> 3 {
+				case 1: // map 键
+
+					if t2&7 != 0 {
+						return fmt.Errorf("protobuf 字段 %s map 键 wire type 错误: %d", "Items", t2&7)
+					}
+					kv, m, err := redisProtoReadVarint(entry)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+					k = int32(kv)
+
+				case 2: // map 值
+
+					if t2&7 != 2 {
+						return fmt.Errorf("protobuf 字段 %s map 值 wire type 错误: %d", "Items", t2&7)
+					}
+					payload, m, err := redisProtoReadBytes(entry)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+					if err := val.UnmarshalRedisProto(payload); err != nil {
+						return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Items", err)
+					}
+
+				default:
+					m, err = redisProtoSkip(entry, t2&7)
+					if err != nil {
+						return err
+					}
+					entry = entry[m:]
+				}
+			}
+			if p.Items == nil {
+				p.Items = make(map[int32]DBWeapon)
+			}
+			p.Items[k] = val
+
+		}
+	}
+	return nil
+}
+
+// GetFields 从 Redis Hash 中读取指定字段的值，填充到当前结构体实例中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要读取的字段编号列表，如 FieldDBUserBaseInfo_DBWeaponMap_Name, FieldDBUserBaseInfo_DBWeaponMap_Age
+//
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldDBUserBaseInfo_DBWeaponMapIDs）
+//	集合字段（map/repeated）整体 protobuf 反序列化
+func (p *DBUserBaseInfo_DBWeaponMap) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBWeaponMap) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
-	const script = "local prefix = ARGV[1]..\":\"\nlocal cursor = \"0\"\nrepeat\n  local r = redis.call(\"HSCAN\", KEYS[1], cursor, \"MATCH\", prefix..\"*\", \"COUNT\", 512)\n  cursor = r[1]\n  local entries = r[2]\n  for i = 1, #entries, 2 do\n    redis.call(\"HDEL\", KEYS[1], entries[i])\n  end\nuntil cursor == \"0\"\nreturn 1"
-	_, err := conn.Do("EVAL", script, 1, key, 14)
-	return err
+
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBWeaponMapIDs
+	}
+
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
+	args := []interface{}{key}
+	for _, fieldID := range fieldsToUse {
+		args = append(args, fieldID)
+	}
+
+	// 一次 HMGET 获取所有字段值
+	reply, err := conn.Do("HMGET", args...)
+	if err != nil {
+		return fmt.Errorf("HMGET 失败: %v", err)
+	}
+
+	// 解析返回的 []interface{} 列表
+	values, err := redis.Values(reply, nil)
+	if err != nil {
+		return fmt.Errorf("解析 HMGET 结果失败: %v", err)
+	}
+
+	// 逐一处理每个字段
+	fieldIndex := 0
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
+
+		case FieldDBUserBaseInfo_DBWeaponMap_Items:
+
+			// --- 集合字段: Items（整体 protobuf 反序列化）---
+			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
+				if err := p.UnmarshalRedisProtoItems(val); err != nil {
+					return fmt.Errorf("protobuf 反序列化字段 %s 失败: %v", "Items", err)
+				}
+			}
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+		fieldIndex++
+	}
+
+	return nil
 }
 
-// --- Message: UserBaseInfo_Profile ---
+// SetFields 将当前结构体实例的字段值，存储到 Redis Hash 中
+// conn: Redis 连接
+// REDBKey: 业务维度 Key
+// ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
+// fields: 要存储的字段编号列表，如 FieldDBUserBaseInfo_DBWeaponMap_Name, FieldDBUserBaseInfo_DBWeaponMap_Age
+//
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldDBUserBaseInfo_DBWeaponMapIDs）
+//	集合字段（map/repeated）整体 protobuf 序列化后写入
+func (p *DBUserBaseInfo_DBWeaponMap) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBWeaponMap) error {
+	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
+	args := []interface{}{key}
 
-// FieldUserBaseInfo_ProfileX 用于标识 Redis Hash 中的字段编号
-type FieldUserBaseInfo_ProfileX uint32
+	// 决定要操作的字段列表
+	fieldsToUse := fields
+	if len(fieldsToUse) == 0 {
+		fieldsToUse = FieldDBUserBaseInfo_DBWeaponMapIDs
+	}
 
-// FieldUserBaseInfo_ProfileX_Nickname 是字段 Nickname 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_ProfileX_Nickname FieldUserBaseInfo_ProfileX = 1
+	for _, fieldID := range fieldsToUse {
+		switch fieldID {
 
-// FieldUserBaseInfo_ProfileX_Age 是字段 Age 对应的 Redis Hash field 编号
-const FieldUserBaseInfo_ProfileX_Age FieldUserBaseInfo_ProfileX = 2
+		case FieldDBUserBaseInfo_DBWeaponMap_Items:
 
-// FieldUserBaseInfo_ProfileXIDs 是所有字段编号常量的集合，类型为 []FieldUserBaseInfo_ProfileX
-var FieldUserBaseInfo_ProfileXIDs = []FieldUserBaseInfo_ProfileX{
-	FieldUserBaseInfo_ProfileX_Nickname,
-	FieldUserBaseInfo_ProfileX_Age,
+			// --- 集合字段: Items（整体 protobuf 序列化）---
+			b, err := p.MarshalRedisProtoItems()
+			if err != nil {
+				return fmt.Errorf("protobuf 序列化字段 %s 失败: %v", "Items", err)
+			}
+			args = append(args, fieldID, b)
+
+		default:
+			return fmt.Errorf("未知字段编号: %d", fieldID)
+		}
+	}
+
+	// 所有字段统一一次 HSET 写入
+	if len(args) > 1 {
+		_, err := conn.Do("HSET", args...)
+		return err
+	}
+	return nil
 }
 
-// UserBaseInfo_Profile 提供针对 UserBaseInfo_Profile 消息的 Redis 存取操作
-type UserBaseInfo_Profile struct {
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。
+
+// --- Message: DBUserBaseInfo_DBProfile ---
+
+// FieldDBUserBaseInfo_DBProfile 用于标识 Redis Hash 中的字段编号
+type FieldDBUserBaseInfo_DBProfile uint32
+
+// FieldDBUserBaseInfo_DBProfile_Nickname 是字段 Nickname 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_DBProfile_Nickname FieldDBUserBaseInfo_DBProfile = 1
+
+// FieldDBUserBaseInfo_DBProfile_Age 是字段 Age 对应的 Redis Hash field 编号
+const FieldDBUserBaseInfo_DBProfile_Age FieldDBUserBaseInfo_DBProfile = 2
+
+// FieldDBUserBaseInfo_DBProfileIDs 是所有字段编号常量的集合，类型为 []FieldDBUserBaseInfo_DBProfile
+var FieldDBUserBaseInfo_DBProfileIDs = []FieldDBUserBaseInfo_DBProfile{
+	FieldDBUserBaseInfo_DBProfile_Nickname,
+	FieldDBUserBaseInfo_DBProfile_Age,
+}
+
+// DBUserBaseInfo_DBProfile 提供针对 DBUserBaseInfo_DBProfile 消息的 Redis 存取操作
+type DBUserBaseInfo_DBProfile struct {
 	Nickname string
 
 	Age int32
 }
 
-// NewUserBaseInfo_Profile 创建一个新的 UserBaseInfo_Profile 实例
-func NewUserBaseInfo_Profile() *UserBaseInfo_Profile {
-	return &UserBaseInfo_Profile{}
+// NewDBUserBaseInfo_DBProfile 创建一个新的 DBUserBaseInfo_DBProfile 实例
+func NewDBUserBaseInfo_DBProfile() *DBUserBaseInfo_DBProfile {
+	return &DBUserBaseInfo_DBProfile{}
 }
 
-// MarshalRedisProto 将 UserBaseInfo_Profile 序列化为 protobuf wire format 字节流。
+// MarshalRedisProto 将 DBUserBaseInfo_DBProfile 序列化为 protobuf wire format 字节流。
 // 字节流与语言无关：任何语言使用同一份 .proto 定义即可解析。
 // 编码遵循 proto3 语义：零值标量/空字符串/空 bytes 不编码，message 字段恒编码，
 // repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
-func (p *UserBaseInfo_Profile) MarshalRedisProto() ([]byte, error) {
+func (p *DBUserBaseInfo_DBProfile) MarshalRedisProto() ([]byte, error) {
 	var buf []byte
 
 	// 字段 Nickname（tag 1）
@@ -2009,10 +2718,10 @@ func (p *UserBaseInfo_Profile) MarshalRedisProto() ([]byte, error) {
 	return buf, nil
 }
 
-// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 UserBaseInfo_Profile。
+// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 DBUserBaseInfo_DBProfile。
 // 反序列化前会先重置自身；未知字段跳过，缺失字段保持零值（proto3 语义）。
-func (p *UserBaseInfo_Profile) UnmarshalRedisProto(b []byte) error {
-	*p = UserBaseInfo_Profile{}
+func (p *DBUserBaseInfo_DBProfile) UnmarshalRedisProto(b []byte) error {
+	*p = DBUserBaseInfo_DBProfile{}
 	for len(b) > 0 {
 		tag, n, err := redisProtoReadVarint(b)
 		if err != nil {
@@ -2063,26 +2772,26 @@ func (p *UserBaseInfo_Profile) UnmarshalRedisProto(b []byte) error {
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要读取的字段编号列表，如 FieldUserBaseInfo_ProfileX_Name, FieldUserBaseInfo_ProfileX_Age
+// fields: 要读取的字段编号列表，如 FieldDBUserBaseInfo_DBProfile_Name, FieldDBUserBaseInfo_DBProfile_Age
 //
-//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldUserBaseInfo_ProfileXIDs）
-//	集合字段（map/repeated）从元素级存储（<tag>:<key|index>）整体读回
-func (p *UserBaseInfo_Profile) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo_ProfileX) error {
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldDBUserBaseInfo_DBProfileIDs）
+//	集合字段（map/repeated）整体 protobuf 反序列化
+func (p *DBUserBaseInfo_DBProfile) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBProfile) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldUserBaseInfo_ProfileXIDs
+		fieldsToUse = FieldDBUserBaseInfo_DBProfileIDs
 	}
 
-	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...（集合字段的返回值会被忽略）
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
 	args := []interface{}{key}
 	for _, fieldID := range fieldsToUse {
 		args = append(args, fieldID)
 	}
 
-	// 一次 HMGET 获取所有直存字段值
+	// 一次 HMGET 获取所有字段值
 	reply, err := conn.Do("HMGET", args...)
 	if err != nil {
 		return fmt.Errorf("HMGET 失败: %v", err)
@@ -2099,7 +2808,7 @@ func (p *UserBaseInfo_Profile) GetFields(conn redis.Conn, REDBKey uint32, ida, i
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUserBaseInfo_ProfileX_Nickname:
+		case FieldDBUserBaseInfo_DBProfile_Nickname:
 
 			// --- 直读字段: Nickname ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -2108,7 +2817,7 @@ func (p *UserBaseInfo_Profile) GetFields(conn redis.Conn, REDBKey uint32, ida, i
 
 			}
 
-		case FieldUserBaseInfo_ProfileX_Age:
+		case FieldDBUserBaseInfo_DBProfile_Age:
 
 			// --- 直读字段: Age ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -2134,29 +2843,29 @@ func (p *UserBaseInfo_Profile) GetFields(conn redis.Conn, REDBKey uint32, ida, i
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要存储的字段编号列表，如 FieldUserBaseInfo_ProfileX_Name, FieldUserBaseInfo_ProfileX_Age
+// fields: 要存储的字段编号列表，如 FieldDBUserBaseInfo_DBProfile_Name, FieldDBUserBaseInfo_DBProfile_Age
 //
-//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldUserBaseInfo_ProfileXIDs）
-//	集合字段（map/repeated）以元素级存储整体替换（Lua 原子操作）
-func (p *UserBaseInfo_Profile) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldUserBaseInfo_ProfileX) error {
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldDBUserBaseInfo_DBProfileIDs）
+//	集合字段（map/repeated）整体 protobuf 序列化后写入
+func (p *DBUserBaseInfo_DBProfile) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBUserBaseInfo_DBProfile) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldUserBaseInfo_ProfileXIDs
+		fieldsToUse = FieldDBUserBaseInfo_DBProfileIDs
 	}
 
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldUserBaseInfo_ProfileX_Nickname:
+		case FieldDBUserBaseInfo_DBProfile_Nickname:
 
 			// --- 直存字段: Nickname ---
 			args = append(args, fieldID, p.Nickname)
 
-		case FieldUserBaseInfo_ProfileX_Age:
+		case FieldDBUserBaseInfo_DBProfile_Age:
 
 			// --- 直存字段: Age ---
 			args = append(args, fieldID, p.Age)
@@ -2166,7 +2875,7 @@ func (p *UserBaseInfo_Profile) SetFields(conn redis.Conn, REDBKey uint32, ida, i
 		}
 	}
 
-	// 仅当存在直存字段时才执行 HSET（纯集合字段的写入已在各 Set<Field>All 中完成）
+	// 所有字段统一一次 HSET 写入
 	if len(args) > 1 {
 		_, err := conn.Do("HSET", args...)
 		return err
@@ -2174,29 +2883,35 @@ func (p *UserBaseInfo_Profile) SetFields(conn redis.Conn, REDBKey uint32, ida, i
 	return nil
 }
 
-// --- Message: Weapon ---
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。
 
-// FieldWeapon 用于标识 Redis Hash 中的字段编号
-type FieldWeapon uint32
+// --- Message: DBWeapon ---
 
-// FieldWeapon_Name 是字段 Name 对应的 Redis Hash field 编号
-const FieldWeapon_Name FieldWeapon = 1
+// FieldDBWeapon 用于标识 Redis Hash 中的字段编号
+type FieldDBWeapon uint32
 
-// FieldWeapon_Damage 是字段 Damage 对应的 Redis Hash field 编号
-const FieldWeapon_Damage FieldWeapon = 2
+// FieldDBWeapon_Name 是字段 Name 对应的 Redis Hash field 编号
+const FieldDBWeapon_Name FieldDBWeapon = 1
 
-// FieldWeapon_Element 是字段 Element 对应的 Redis Hash field 编号
-const FieldWeapon_Element FieldWeapon = 3
+// FieldDBWeapon_Damage 是字段 Damage 对应的 Redis Hash field 编号
+const FieldDBWeapon_Damage FieldDBWeapon = 2
 
-// FieldWeaponIDs 是所有字段编号常量的集合，类型为 []FieldWeapon
-var FieldWeaponIDs = []FieldWeapon{
-	FieldWeapon_Name,
-	FieldWeapon_Damage,
-	FieldWeapon_Element,
+// FieldDBWeapon_Element 是字段 Element 对应的 Redis Hash field 编号
+const FieldDBWeapon_Element FieldDBWeapon = 3
+
+// FieldDBWeaponIDs 是所有字段编号常量的集合，类型为 []FieldDBWeapon
+var FieldDBWeaponIDs = []FieldDBWeapon{
+	FieldDBWeapon_Name,
+	FieldDBWeapon_Damage,
+	FieldDBWeapon_Element,
 }
 
-// Weapon 提供针对 Weapon 消息的 Redis 存取操作
-type Weapon struct {
+// DBWeapon 提供针对 DBWeapon 消息的 Redis 存取操作
+type DBWeapon struct {
 	Name string
 
 	Damage int32
@@ -2204,16 +2919,16 @@ type Weapon struct {
 	Element string
 }
 
-// NewWeapon 创建一个新的 Weapon 实例
-func NewWeapon() *Weapon {
-	return &Weapon{}
+// NewDBWeapon 创建一个新的 DBWeapon 实例
+func NewDBWeapon() *DBWeapon {
+	return &DBWeapon{}
 }
 
-// MarshalRedisProto 将 Weapon 序列化为 protobuf wire format 字节流。
+// MarshalRedisProto 将 DBWeapon 序列化为 protobuf wire format 字节流。
 // 字节流与语言无关：任何语言使用同一份 .proto 定义即可解析。
 // 编码遵循 proto3 语义：零值标量/空字符串/空 bytes 不编码，message 字段恒编码，
 // repeated 逐元素编码（含零值），map 每键值对编码为子消息（field 1=key, field 2=value）。
-func (p *Weapon) MarshalRedisProto() ([]byte, error) {
+func (p *DBWeapon) MarshalRedisProto() ([]byte, error) {
 	var buf []byte
 
 	// 字段 Name（tag 1）
@@ -2241,10 +2956,10 @@ func (p *Weapon) MarshalRedisProto() ([]byte, error) {
 	return buf, nil
 }
 
-// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 Weapon。
+// UnmarshalRedisProto 从 protobuf wire format 字节流反序列化到 DBWeapon。
 // 反序列化前会先重置自身；未知字段跳过，缺失字段保持零值（proto3 语义）。
-func (p *Weapon) UnmarshalRedisProto(b []byte) error {
-	*p = Weapon{}
+func (p *DBWeapon) UnmarshalRedisProto(b []byte) error {
+	*p = DBWeapon{}
 	for len(b) > 0 {
 		tag, n, err := redisProtoReadVarint(b)
 		if err != nil {
@@ -2307,26 +3022,26 @@ func (p *Weapon) UnmarshalRedisProto(b []byte) error {
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要读取的字段编号列表，如 FieldWeapon_Name, FieldWeapon_Age
+// fields: 要读取的字段编号列表，如 FieldDBWeapon_Name, FieldDBWeapon_Age
 //
-//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldWeaponIDs）
-//	集合字段（map/repeated）从元素级存储（<tag>:<key|index>）整体读回
-func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldWeapon) error {
+//	如果 fields 为空（长度为 0），则默认读取所有字段（即 FieldDBWeaponIDs）
+//	集合字段（map/repeated）整体 protobuf 反序列化
+func (p *DBWeapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBWeapon) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldWeaponIDs
+		fieldsToUse = FieldDBWeaponIDs
 	}
 
-	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...（集合字段的返回值会被忽略）
+	// 构造 HMGET 参数：key + fieldID1 + fieldID2 + ...，一次取回全部字段值
 	args := []interface{}{key}
 	for _, fieldID := range fieldsToUse {
 		args = append(args, fieldID)
 	}
 
-	// 一次 HMGET 获取所有直存字段值
+	// 一次 HMGET 获取所有字段值
 	reply, err := conn.Do("HMGET", args...)
 	if err != nil {
 		return fmt.Errorf("HMGET 失败: %v", err)
@@ -2343,7 +3058,7 @@ func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldWeapon_Name:
+		case FieldDBWeapon_Name:
 
 			// --- 直读字段: Name ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -2352,7 +3067,7 @@ func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 
 			}
 
-		case FieldWeapon_Damage:
+		case FieldDBWeapon_Damage:
 
 			// --- 直读字段: Damage ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -2365,7 +3080,7 @@ func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 
 			}
 
-		case FieldWeapon_Element:
+		case FieldDBWeapon_Element:
 
 			// --- 直读字段: Element ---
 			if val, ok := values[fieldIndex].([]byte); ok && val != nil {
@@ -2387,34 +3102,34 @@ func (p *Weapon) GetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 // conn: Redis 连接
 // REDBKey: 业务维度 Key
 // ida, idb: 用于组成唯一 Hash Key 的两个 uint64 分片维度
-// fields: 要存储的字段编号列表，如 FieldWeapon_Name, FieldWeapon_Age
+// fields: 要存储的字段编号列表，如 FieldDBWeapon_Name, FieldDBWeapon_Age
 //
-//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldWeaponIDs）
-//	集合字段（map/repeated）以元素级存储整体替换（Lua 原子操作）
-func (p *Weapon) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldWeapon) error {
+//	如果 fields 为空（长度为 0），则默认存储所有字段（即 FieldDBWeaponIDs）
+//	集合字段（map/repeated）整体 protobuf 序列化后写入
+func (p *DBWeapon) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fields ...FieldDBWeapon) error {
 	key := fmt.Sprintf("REDB#%d:%d:%d", REDBKey, ida, idb)
 	args := []interface{}{key}
 
 	// 决定要操作的字段列表
 	fieldsToUse := fields
 	if len(fieldsToUse) == 0 {
-		fieldsToUse = FieldWeaponIDs
+		fieldsToUse = FieldDBWeaponIDs
 	}
 
 	for _, fieldID := range fieldsToUse {
 		switch fieldID {
 
-		case FieldWeapon_Name:
+		case FieldDBWeapon_Name:
 
 			// --- 直存字段: Name ---
 			args = append(args, fieldID, p.Name)
 
-		case FieldWeapon_Damage:
+		case FieldDBWeapon_Damage:
 
 			// --- 直存字段: Damage ---
 			args = append(args, fieldID, p.Damage)
 
-		case FieldWeapon_Element:
+		case FieldDBWeapon_Element:
 
 			// --- 直存字段: Element ---
 			args = append(args, fieldID, p.Element)
@@ -2424,10 +3139,16 @@ func (p *Weapon) SetFields(conn redis.Conn, REDBKey uint32, ida, idb uint64, fie
 		}
 	}
 
-	// 仅当存在直存字段时才执行 HSET（纯集合字段的写入已在各 Set<Field>All 中完成）
+	// 所有字段统一一次 HSET 写入
 	if len(args) > 1 {
 		_, err := conn.Do("HSET", args...)
 		return err
 	}
 	return nil
 }
+
+// ---------- 字段级 protobuf 编码/解码模板块（MarshalRedisProto / UnmarshalRedisProto
+// 与集合字段的字段级序列化方法共用） ----------
+//
+// 约定上下文变量：fieldEncode 向 buf 追加字节；fieldDecode 从 b 消费一个字段段，
+// 校验 wire 变量，解码结果写入 p.<Name>。

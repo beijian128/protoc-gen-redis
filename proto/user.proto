@@ -11,8 +11,8 @@ enum Gender {
   GENDER_FEMALE = 2;
 }
 
-// 用户基础信息
-message UserBaseInfo {
+// 用户基础信息（顶层 message：名称带 DB 前缀，集合字段用嵌套 message 包裹）
+message DBUserBaseInfo {
   int32 user_id = 1;                // 用户唯一ID（int32，高频字段，用1-15编码）
   string username = 2;              // 用户名（string，UTF-8编码）
   string avatar_url = 3;            // 头像URL（string，可能含特殊字符）
@@ -20,23 +20,41 @@ message UserBaseInfo {
   int32 level = 5;                  // 玩家等级（int32，非负数）
   int64 exp = 6;                    // 经验值（int64，大数值）
   float balance = 7;                // 金币余额（float，浮点数）
-  repeated string friends = 8;      // 好友列表（repeated，动态数组）
-  map<string, string> settings = 9; // 用户设置（map，键值对，如"sound_volume": "80"）
+  DBFriends friends = 8;            // 好友列表（集合字段：message 包裹）
+  DBSettings settings = 9;          // 用户设置（集合字段：message 包裹）
   LoginSource login_source = 10;    // 登录来源（嵌套枚举）
-  repeated int32 listint32 = 11;
-  repeated Weapon weapons = 12;
-  Weapon weapon = 13;
-  map<int32,Weapon>  weaponMap= 14;
+  DBInt32List int32_list = 11;      // int32 列表（集合字段：message 包裹）
+  DBWeapons weapons = 12;           // 武器列表（集合字段：message 包裹）
+  DBWeapon weapon = 13;             // 当前武器（嵌套 message）
+  DBWeaponMap weapon_map = 14;      // 武器 map（集合字段：message 包裹）
   uint32 coin = 15;                 // 金币（uint32，无符号）
   uint64 gem = 16;                  // 宝石（uint64，大数值）
   bool vip = 17;                    // 是否 VIP（bool）
   double score = 18;                // 综合评分（double，高精度浮点）
   bytes token = 19;                 // 会话令牌（bytes）
-  Profile profile = 20;             // 个人资料（嵌套 message）
+  DBProfile profile = 20;           // 个人资料（嵌套 message）
   VipLevel vip_level = 21;          // VIP 等级（嵌套枚举）
 
+  // 集合字段包装 message（约定：顶层 message 不允许直接定义 repeated/map，
+  // 集合字段必须用 message 包起来嵌套，整体走 protobuf 序列化）
+  message DBFriends {
+    repeated string items = 1;      // 好友名列表
+  }
+  message DBSettings {
+    map<string, string> kv = 1;     // 设置键值对，如 "sound_volume": "80"
+  }
+  message DBInt32List {
+    repeated int32 items = 1;
+  }
+  message DBWeapons {
+    repeated DBWeapon items = 1;
+  }
+  message DBWeaponMap {
+    map<int32, DBWeapon> items = 1;
+  }
+
   // 个人资料（嵌套 message）
-  message Profile {
+  message DBProfile {
     string nickname = 1;            // 昵称
     int32 age = 2;                  // 年龄
   }
@@ -57,8 +75,8 @@ enum LoginSource {
   SOURCE_MINI_PROGRAM = 3;
 }
 
-// 武器信息
-message Weapon {
+// 武器信息（顶层 message：名称带 DB 前缀）
+message DBWeapon {
   string name = 1;                  // 武器名称（string）
   int32 damage = 2;                 // 伤害值（int32，正数）
   string element = 3;               // 元素属性（string，如"fire"、"ice"）

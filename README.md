@@ -7,9 +7,10 @@ protoc-gen-redis 是一个基于 Protocol Buffers (protoc) 生态的代码生成
 ## ✨ 功能特性
 
 - 🎯 **Redis Hash 存储**：一个 proto message 对应一个 Redis Hash，字段映射到 Hash field
-- 🧩 **自动生成操作方法**：`GetFields()` / `SetFields()` 按需读写字段；集合字段生成元素级 `Set/Get/Del/Append` 与整体 `All` 方法
+- 🧩 **自动生成操作方法**：`GetFields()` / `SetFields()` 按需读写字段；集合字段整体 protobuf 序列化，附字段级 `MarshalRedisProto<Field>()` / `UnmarshalRedisProto<Field>()` 方法
 - 🏷️ **字段常量映射**：基于 proto field number 生成 `Field_<FieldName> = <tag>` 常量
-- 📦 **元素级集合存储**：map / repeated 按元素拆分 hash field，单元素 O(1) 读写；整体替换走 Lua 原子操作
+- 📦 **集合字段整体序列化**：map / repeated 与嵌套 message 一样整体走 protobuf wire format，单个 hash field 存取；约定集合字段统一用 message 包一层
+- ✅ **约定校验**：生成前强制校验 message 命名（`DB` 前缀）与集合字段包裹约定，违反即报错
 - 🌐 **枚举类型支持**：自动生成 Go 枚举类型与常量，命名与 protoc-gen-go 一致
 - 🧱 **分片 Key 设计**：默认 `REDB#<REDBKey>:<ida>:<idb>` 多维分片，格式可经 `key_format` 参数定制
 - 💾 **语言无关序列化**：嵌套 message 使用标准 protobuf wire format 编码，任何语言用同一份 .proto 即可解析
@@ -24,22 +25,17 @@ protoc-gen-redis 是一个基于 Protocol Buffers (protoc) 生态的代码生成
 
 | 能力 | 用到的命令 | 最低 Redis 版本 |
 |---|---|---|
-| 标量字段读写、元素级集合操作 | HSET / HGET / HMGET / HDEL | 2.0 |
-| Lua 批量操作（集合整体替换/删除、repeated 追加） | EVAL | 2.6 |
-| 集合整体读取（`Get<Field>All` / `GetFields` 集合部分） | HSCAN + MATCH | 2.8 |
-| **全功能** | 以上全部 | **2.8+** |
+| **全功能**（标量与集合字段读写） | HSET / HGET / HMGET / HDEL | **2.0+** |
 
-建议生产环境使用 **Redis 4.0+**：与 Tendis 各系列的兼容基线（Redis 4.0 / 5.0 协议）保持一致，代码可以在 Redis 与 Tendis 之间无差别切换。
+生成代码只使用上述四条基本命令，不依赖 Lua 脚本（EVAL）与 HSCAN。建议生产环境使用 **Redis 4.0+**：与 Tendis 各系列的兼容基线（Redis 4.0 / 5.0 协议）保持一致，代码可以在 Redis 与 Tendis 之间无差别切换。
 
 ### Tendis
 
-| 系列 | 兼容的 Redis 协议 | Lua（EVAL） | 本项目可用性 |
-|---|---|---|---|
-| 腾讯云 Tendis 存储版 | Redis 4.0（大部分命令） | ❌ 不支持 | 标量字段与元素级操作可用；依赖 Lua 的集合批量操作不可用 |
-| 腾讯云 Tendis 混合存储版 | Redis 4.0 集群版 | ✅ 支持（脚本不跨 slot） | 完整可用 |
-| 开源 Tendisplus（Tencent/Tendis） | Redis 5.0 | ✅ 支持 | 完整可用 |
-
-Lua 不可用时受影响的具体操作与注意点，见 [DESIGN.md](DESIGN.md)。
+| 系列 | 兼容的 Redis 协议 | 本项目可用性 |
+|---|---|---|
+| 腾讯云 Tendis 存储版 | Redis 4.0（大部分命令） | ✅ 完整可用（生成代码不依赖其不支持的 EVAL） |
+| 腾讯云 Tendis 混合存储版 | Redis 4.0 集群版 | ✅ 完整可用 |
+| 开源 Tendisplus（Tencent/Tendis） | Redis 5.0 | ✅ 完整可用 |
 
 ## 📦 快速开始
 
@@ -64,4 +60,4 @@ protoc \
 | 文档 | 内容 |
 |---|---|
 | [USAGE.md](USAGE.md) | 使用指南：环境准备、proto 定义、代码生成、Go 使用示例、跨语言读取、测试 |
-| [DESIGN.md](DESIGN.md) | 设计说明：存储结构、集合字段元素级存储、Tendis 兼容性 |
+| [DESIGN.md](DESIGN.md) | 设计说明：存储结构、集合字段整体序列化与 message 包裹约定、Tendis 兼容性 |

@@ -37,39 +37,48 @@ REDB#<REDBKey>:<ida>:<idb>
 - Field：即 proto 字段编号（如 1, 2, 3...），对应 Hash 中的 field key
 - Value：字段值（string / int / []byte / protobuf wire format 编码的二进制）
 
-### 集合字段的元素级存储（方案 A）
+### 集合字段的存储（整体 protobuf 序列化）
 
-`map` 与 `repeated` 字段不整块序列化，而是按元素拆成独立的 hash field（`<字段编号>:<key|下标>`），只改一个元素就只写一条命令，避免整块序列化/反序列化与并发覆盖：
+`map` 与 `repeated` 字段**不按元素拆分存储**，而是与嵌套 message 一样整体序列化：整个集合编码为 protobuf wire format 二进制，存入一个 hash field（field key 即字段编号）。读写都是整体操作，一条命令完成，不存在元素级读写。
 
-- `map<K,V>`：`Set<Field>(conn, key, k, v)` / `Get<Field>(conn, key, k)` / `Del<Field>(conn, key, k)`，单键操作
-- `repeated`：`Set<Field>(conn, key, i, v)` / `Get<Field>(conn, key, i)` / `Del<Field>(conn, key, i)` / `Append<Field>(conn, key, v)`（返回新下标）
-- 整体读写：`Get<Field>All` / `Set<Field>All` / `Del<Field>All`——整体替换用 **Lua 脚本原子完成**（先清空旧元素再写入，repeated 重建下标 0..n-1 可修复删除空洞）
-- 元素值规则：标量/枚举/bytes 直接存储，message 元素单元素 protobuf wire format 序列化
-- `GetFields`/`SetFields` 对集合字段自动走元素级存储整体读写，两种方式数据互通
-- 契约：集合字段无元素时回读为 nil；`Del<Field>(i)` 删除后不压缩下标，`Append` 从最大下标 + 1 继续；需要紧凑序列用 `Set<Field>All` 重建
+- **约定：集合字段统一用 message 包起来嵌套**。如 `message DBFriendList { repeated string items = 1; }`，消息里声明 `DBFriendList friend_list = 22;`，字段就是普通 message 字段，走 message 序列化，语义清晰、无特殊处理
+- 裸 `map` / `repeated` 字段同样支持整体序列化（通常只出现在包裹 message 内部）：每个集合字段额外生成字段级方法 `MarshalRedisProto<Field>()` / `UnmarshalRedisProto<Field>()`（GetFields/SetFields 内部使用）
+- 修改集合中的单个元素需要**整体读-改-写**（读回整个集合、改动后整块写回）；业务层无需跟踪"哪个元素被改/增/删"，也就没有脏标记问题
+- 存储形态：`map<K,V>` / `repeated T` 的 wire format 编码是语言无关的标准 protobuf 字节（与嵌套 message 一致），任何语言用同一份 .proto 即可解析
+- 契约：集合字段无元素时回读为 nil；空集合整体写入后为 hash field 中的空字节，回读同样为 nil
+
+### 集合字段的整体读-改-写与并发
+
+集合字段每次写入都是整块覆盖（HSET 单个 hash field），不存在元素级操作的并发覆盖问题：
+读-改-写期间其他写入方可能覆盖整个集合（最后写入者胜出），与普通 message 字段的并发语义一致，业务层按整体值看待集合即可。
+
+## 约定校验（生成期强制）
+
+插件在生成前校验 proto 定义是否符合约定，违反时 protoc 直接报错（编译失败，错误信息指明违规的 message / 字段）：
+
+1. **所有 message 名称必须以 `DB` 前缀开头**（顶层与嵌套都要求，map 合成 entry 除外）
+2. **顶层 message 的字段不能直接定义 `repeated` / `map`**——集合字段必须用嵌套 message 包一层
+
+```proto
+message DBUserBaseInfo {
+  DBFriends friends = 8;              // ✓ 集合字段用 message 包起来
+  // repeated string friends = 8;     // ✗ 违反约定：顶层字段不能直接是 repeated
+  message DBFriends {
+    repeated string items = 1;        // 嵌套 message 内部允许集合字段
+  }
+}
+```
+
+为什么这样约定：顶层 message 对应 Redis Hash（一张"表"），`DB` 前缀让数据表一眼可辨；集合必须整体序列化，直接暴露在顶层容易把"改一个元素"的诉求引向元素级操作，包裹成 message 后字段与普通嵌套 message 完全一致，读写路径唯一、行为统一。
 
 ## 生产环境：Tendis 等磁盘持久化引擎的兼容性
 
-生成代码的命令选型与 Tendis 各版本的兼容情况：
+生成代码只使用 **HSET / HGET / HMGET / HDEL** 四条基本命令，**不依赖 Lua 脚本（EVAL）与 HSCAN**，任何 RESP 兼容引擎都完整可用：
 
-| Tendis 版本 | Lua 脚本（EVAL） | 对本项目的影响 |
-|---|---|---|
-| 腾讯云 Tendis 存储版 | ❌ 不支持（`eval`/`evalsha` 在不支持命令清单中） | 集合字段的批量操作不可用 |
-| 腾讯云 Tendis 混合存储版 | ✅ 支持（要求脚本不跨 slot） | 本项目脚本只操作 `KEYS[1]` 单 key，天然满足 |
-| 开源 Tendisplus（Tencent/Tendis） | ✅ 完整支持 | 无影响 |
+| 引擎 | 兼容性 |
+|---|---|
+| 腾讯云 Tendis 存储版 | ✅ 完整可用（其不支持的 EVAL 已不再依赖） |
+| 腾讯云 Tendis 混合存储版 | ✅ 完整可用 |
+| 开源 Tendisplus（Tencent/Tendis） | ✅ 完整可用 |
 
-各系列的协议兼容版本（Redis 4.0 / 5.0）与可用性总览见 README「版本要求」。
-
-**依赖 Lua 脚本（EVAL）的操作**——仅在支持 Lua 的引擎上可用：
-
-- `SetFields` 写入集合字段（内部走 `Set<Field>All`）
-- `Set<Field>All`（整体替换）、`Del<Field>All`（整体删除）
-- `Append<Field>`（repeated 追加，靠脚本找最大下标）
-
-**纯命令实现、任何 RESP 兼容引擎可用**：
-
-- `GetFields` / `SetFields` 的标量字段（HMGET / HSET）
-- 元素级 `Set<Field>` / `Get<Field>` / `Del<Field>`（HSET / HGET / HDEL）
-- `Get<Field>All`（HSCAN + MATCH，Tendis 支持 Scan 族命令）
-
-注意：Tendis 这类磁盘引擎上 HSCAN 是全量遍历，`Get<Field>All` 的性能比内存 Redis 差，Hash 较大时需按业务评估。集成测试只需把 `bin/config.json` 指向 Tendis 即可直接运行（存储版会挂掉全部 Lua 用例，可当兼容性冒烟测试）。
+各系列的协议兼容版本（Redis 4.0 / 5.0）与可用性总览见 README「版本要求」。集成测试只需把 `bin/config.json` 指向 Tendis 即可直接运行（作为兼容性冒烟测试）。
